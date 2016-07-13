@@ -10,6 +10,12 @@ namespace D3D12HelloTriangle
 
     internal class HelloTriangle : IDisposable
     {
+        struct Vertex
+        {
+            public Vector3 Position;
+            public Vector4 Color;
+        };
+
         public const int FrameCount = 2;
 
         public Device Device { get; set; }
@@ -24,6 +30,12 @@ namespace D3D12HelloTriangle
         public int FenceValue { get; private set; }
         public Fence Fence { get; private set; }
         public AutoResetEvent FenceEvent { get; private set; }
+        public ViewportF Viewport { get; private set; }
+        public Rectangle ScissorRect { get; private set; }
+        public RootSignature RootSignature { get; private set; }
+        public PipelineState PipelineState { get; private set; }
+        public Resource VertexBuffer { get; private set; }
+        public VertexBufferView VertexBufferView { get; private set; }
 
         public void Dispose()
         {
@@ -36,8 +48,11 @@ namespace D3D12HelloTriangle
 
             this.CommandAllocator.Dispose();
             this.CommandQueue.Dispose();
+            this.RootSignature.Dispose();
             this.RenderTargetViewHeap.Dispose();
+            this.PipelineState.Dispose();
             this.CommandList.Dispose();
+            this.VertexBuffer.Dispose();
             this.Fence.Dispose();
             this.SwapChain.Dispose();
             this.Device.Dispose();
@@ -53,6 +68,9 @@ namespace D3D12HelloTriangle
         {
             var width = form.ClientSize.Width;
             var height = form.ClientSize.Height;
+
+            this.Viewport = new ViewportF(0, 0, width, height, 0.0f, 1.0f);
+            this.ScissorRect = new Rectangle(0, 0, width, height);
 
 #if DEBUG
             {
@@ -109,8 +127,78 @@ namespace D3D12HelloTriangle
 
         private void LoadAssets()
         {
-            this.CommandList = this.Device.CreateCommandList(CommandListType.Direct, this.CommandAllocator, null);
+            var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout);
+            this.RootSignature = this.Device.CreateRootSignature(rootSignatureDesc.Serialize());
+
+#if DEBUG
+            var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
+            var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
+#else
+            var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0"));
+            var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "vs_5_0"));
+#endif
+
+            var inputElementDescs = new []
+            {
+                new InputElement("POSITION", 0, Format.R32G32B32_Float, 0, 0),
+                new InputElement("COLOR", 0, Format.R32G32B32A32_Float, 12, 0),
+            };
+
+            var psoDesc = new GraphicsPipelineStateDescription()
+            {
+                InputLayout = new InputLayoutDescription(inputElementDescs),
+                RootSignature = this.RootSignature,
+                VertexShader = vertexShader,
+                PixelShader = pixelShader,
+                RasterizerState = RasterizerStateDescription.Default(),
+                BlendState = BlendStateDescription.Default(),
+                DepthStencilFormat = Format.D32_Float,
+                DepthStencilState = new DepthStencilStateDescription()
+                {
+                    IsDepthEnabled = false,
+                    IsStencilEnabled = false,
+                },
+                SampleMask = int.MaxValue,
+                PrimitiveTopologyType = PrimitiveTopologyType.Triangle,
+                RenderTargetCount = 1,
+                Flags = PipelineStateFlags.None,
+                SampleDescription = new SampleDescription(1, 0),
+                StreamOutput = new StreamOutputDescription(),
+            };
+            psoDesc.RenderTargetFormats[0] = Format.R8G8B8A8_UNorm;
+
+            this.PipelineState = this.Device.CreateGraphicsPipelineState(psoDesc);
+
+            this.CommandList = this.Device.CreateCommandList(CommandListType.Direct, this.CommandAllocator, this.PipelineState);
             this.CommandList.Close();
+
+            var triangleVertices = new[]
+            {
+                new Vertex { Position = new Vector3(0.0f, 0.5f, 0.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
+                new Vertex { Position = new Vector3(0.5f, -0.5f, 0.0f), Color = new Vector4(0.0f, 1.0f, 0.0f, 0.0f) },
+                new Vertex { Position = new Vector3(-0.5f, -0.5f, 0.0f), Color = new Vector4(0.0f, 0.0f, 1.0f, 0.0f) },
+            };
+            var vertexBufferSize = Utilities.SizeOf(triangleVertices);
+
+            this.VertexBuffer = this.Device.CreateCommittedResource(
+                new HeapProperties(HeapType.Upload), 
+                HeapFlags.None, 
+                ResourceDescription.Buffer(vertexBufferSize), 
+                ResourceStates.GenericRead
+                );
+
+            var pVertexDataBegin = this.VertexBuffer.Map(0);
+            {
+                Utilities.Write(pVertexDataBegin, triangleVertices, 0, triangleVertices.Length);
+            }
+            this.VertexBuffer.Unmap(0);
+
+            this.VertexBufferView = new VertexBufferView()
+            {
+                BufferLocation = this.VertexBuffer.GPUVirtualAddress,
+                StrideInBytes = Utilities.SizeOf<Vertex>(),
+                SizeInBytes = vertexBufferSize,
+            };
 
             this.Fence = this.Device.CreateFence(0, FenceFlags.None);
             this.FenceValue = 1;
@@ -137,14 +225,23 @@ namespace D3D12HelloTriangle
         {
             this.CommandAllocator.Reset();
 
-            this.CommandList.Reset(this.CommandAllocator, null);
+            this.CommandList.Reset(this.CommandAllocator, this.PipelineState);
 
             this.CommandList.ResourceBarrierTransition(this.RenderTargets[this.FrameIndex], ResourceStates.Present, ResourceStates.RenderTarget);
 
+            this.CommandList.SetGraphicsRootSignature(this.RootSignature);
+            this.CommandList.SetViewport(this.Viewport);
+            this.CommandList.SetScissorRectangles(this.ScissorRect);
+
             var rtvDescHandle = this.RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             rtvDescHandle += this.FrameIndex * this.RtvDescriptorSize;
+            this.CommandList.SetRenderTargets(rtvDescHandle, null);
 
             this.CommandList.ClearRenderTargetView(rtvDescHandle, new Color4(0.0f, 0.2f, 0.4f, 1.0f), 0, null);
+
+            this.CommandList.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
+            this.CommandList.SetVertexBuffer(0, this.VertexBufferView);
+            this.CommandList.DrawInstanced(3, 1, 0, 0);
 
             this.CommandList.ResourceBarrierTransition(this.RenderTargets[this.FrameIndex], ResourceStates.RenderTarget, ResourceStates.Present);
 
