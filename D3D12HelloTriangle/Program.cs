@@ -11,7 +11,7 @@ namespace D3D12HelloTriangle
         [STAThread]
         static void Main()
         {
-            var form = new RenderForm("Main Window")
+            var form = new RenderForm("HelloTriangle")
             {
                 Width = 1280,
                 Height = 960,
