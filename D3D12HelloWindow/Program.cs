@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows.Forms;
+using SharpDX.Windows;
 
 namespace D3D12HelloWindow
 {
@@ -14,9 +11,26 @@ namespace D3D12HelloWindow
         [STAThread]
         static void Main()
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Form1());
+            var form = new RenderForm("Main Window")
+            {
+                Width = 1280,
+                Height = 960,
+            };
+            form.Show();
+
+            using (var app = new HelloWindow())
+            {
+                app.Initialize(form);
+
+                using (var loop = new RenderLoop(form))
+                {
+                    while(loop.NextFrame())
+                    {
+                        app.Update();
+                        app.Render();
+                    }
+                }
+            }
         }
     }
 }
