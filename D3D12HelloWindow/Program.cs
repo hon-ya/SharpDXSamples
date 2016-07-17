@@ -14,7 +14,7 @@ namespace D3D12HelloWindow
             var form = new RenderForm("HelloWindow")
             {
                 Width = 1280,
-                Height = 960,
+                Height = 720,
             };
             form.Show();
 

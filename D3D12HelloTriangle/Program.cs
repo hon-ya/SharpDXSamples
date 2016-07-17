@@ -14,7 +14,7 @@ namespace D3D12HelloTriangle
             var form = new RenderForm("HelloTriangle")
             {
                 Width = 1280,
-                Height = 960,
+                Height = 720,
             };
             form.Show();
 
