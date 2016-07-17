@@ -178,8 +178,8 @@ namespace D3D12HelloFrameBuffering
             CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocators[FrameIndex], PipelineState);
             CommandList.Close();
 
-
             // 頂点データを定義します。
+            float aspectRatio = Viewport.Width / Viewport.Height;
             var triangleVertices = new[]
             {
                 new Vertex { Position = new Vector3(0.0f, 0.25f * aspectRatio, 0.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
