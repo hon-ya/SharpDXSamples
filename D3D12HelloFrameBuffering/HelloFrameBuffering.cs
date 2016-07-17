@@ -133,11 +133,9 @@ namespace D3D12HelloFrameBuffering
 
         private void LoadAssets()
         {
-            // 空のルートシグネチャを作成します。
             var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout);
             RootSignature = Device.CreateRootSignature(rootSignatureDesc.Serialize());
 
-            // シェーダをロードします。デバッグビルドのときは、デバッグフラグを立てます。
 #if DEBUG
             var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
             var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
@@ -146,14 +144,12 @@ namespace D3D12HelloFrameBuffering
             var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "vs_5_0"));
 #endif
 
-            // 頂点レイアウトを定義します。
             var inputElementDescs = new []
             {
                 new InputElement("POSITION", 0, Format.R32G32B32_Float, 0, 0),
                 new InputElement("COLOR", 0, Format.R32G32B32A32_Float, 12, 0),
             };
 
-            // グラフィックスパイプラインステートオブジェクトを作成します。
             var psoDesc = new GraphicsPipelineStateDescription()
             {
                 InputLayout = new InputLayoutDescription(inputElementDescs),
@@ -184,7 +180,6 @@ namespace D3D12HelloFrameBuffering
 
 
             // 頂点データを定義します。
-            float aspectRatio = Viewport.Width / Viewport.Height;
             var triangleVertices = new[]
             {
                 new Vertex { Position = new Vector3(0.0f, 0.25f * aspectRatio, 0.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
@@ -193,11 +188,6 @@ namespace D3D12HelloFrameBuffering
             };
             var vertexBufferSize = Utilities.SizeOf(triangleVertices);
 
-            // 頂点バッファを作成します。
-            //
-            // 注意：頂点バッファの様はスタティックなデータを配置するためにアップロードヒープを使うのは適しません。
-            // 正しくは、アップロードヒープにおいた頂点データを HeapType.Default のバッファにコピーするなどしてください。
-            // ここでは、簡略化のためにアップロードヒープをそのまま使います。
             VertexBuffer = Device.CreateCommittedResource(
                 new HeapProperties(HeapType.Upload), 
                 HeapFlags.None, 
@@ -205,14 +195,12 @@ namespace D3D12HelloFrameBuffering
                 ResourceStates.GenericRead
                 );
 
-            // 頂点データを頂点バッファに書き込みます。
             var pVertexDataBegin = VertexBuffer.Map(0);
             {
                 Utilities.Write(pVertexDataBegin, triangleVertices, 0, triangleVertices.Length);
             }
             VertexBuffer.Unmap(0);
 
-            // 頂点バッファビューを作成します。
             VertexBufferView = new VertexBufferView()
             {
                 BufferLocation = VertexBuffer.GPUVirtualAddress,
@@ -238,16 +226,15 @@ namespace D3D12HelloFrameBuffering
 
             SwapChain.Present(1, PresentFlags.None);
 
-            WaitForPreviousFrame();
+            MoveToNextFrame();
         }
 
         private void PopulateCommandList()
         {
+            // フレームごとに、利用するコマンドアロケータを切り替えます。
             CommandAllocators[FrameIndex].Reset();
-
             CommandList.Reset(CommandAllocators[FrameIndex], PipelineState);
 
-            // 必要な各種ステートを設定します。
             CommandList.SetGraphicsRootSignature(RootSignature);
             CommandList.SetViewport(Viewport);
             CommandList.SetScissorRectangles(ScissorRect);
@@ -257,10 +244,8 @@ namespace D3D12HelloFrameBuffering
             var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             rtvDescHandle += FrameIndex * RtvDescriptorSize;
 
-            // レンダーターゲットを設定します。
             CommandList.SetRenderTargets(rtvDescHandle, null);
 
-            // コマンドを積み込みます。
             CommandList.ClearRenderTargetView(rtvDescHandle, new Color4(0.0f, 0.2f, 0.4f, 1.0f), 0, null);
 
             CommandList.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
@@ -272,31 +257,40 @@ namespace D3D12HelloFrameBuffering
             CommandList.Close();
         }
 
+        /// <summary>
+        /// 現在のフレームの処理の完了を待ちます。
+        /// </summary>
         private void WaitForGpu()
         {
+            // フェンスをシグナルし、即、待ちに入ります。
             CommandQueue.Signal(Fence, FenceValues[FrameIndex]);
 
             Fence.SetEventOnCompletion(FenceValues[FrameIndex], FenceEvent.SafeWaitHandle.DangerousGetHandle());
+            FenceEvent.WaitOne();
 
             FenceValues[FrameIndex]++;
         }
 
-        private void WaitForPreviousFrame()
+        /// <summary>
+        /// 次のフレームへ処理を移行します。
+        /// </summary>
+        private void MoveToNextFrame()
         {
-            // フェンスをシグナルするコマンドを積み込み
+            // フェンスをシグナルするコマンドを積み込みます。
             var currentFenceValue = FenceValues[FrameIndex];
             CommandQueue.Signal(Fence, currentFenceValue);
 
-            // フレームインデックスの更新
+            // フレームインデックスを更新します。
             FrameIndex = SwapChain.CurrentBackBufferIndex;
 
-            // 次のフレームで使うリソースの準備がまだ整っていない場合は、これを待つ
+            // 次のフレームで使うリソースの準備がまだ整っていない場合は、これを待ちます。
             if (Fence.CompletedValue < FenceValues[FrameIndex])
             {
                 Fence.SetEventOnCompletion(FenceValues[FrameIndex], FenceEvent.SafeWaitHandle.DangerousGetHandle());
                 FenceEvent.WaitOne();
             }
 
+            // 次に使うフェンスの値を更新します。
             FenceValues[FrameIndex] = currentFenceValue + 1;
         }
     }
