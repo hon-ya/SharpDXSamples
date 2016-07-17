@@ -14,7 +14,12 @@ namespace D3D12HelloConstBuffers
         {
             public Vector3 Position;
             public Vector4 Color;
-        };
+        }
+
+        private struct ConstantBufferDataStruct
+        {
+            public Vector4 Offset;
+        }
 
         private const int FrameCount = 2;
 
@@ -36,6 +41,10 @@ namespace D3D12HelloConstBuffers
         private PipelineState PipelineState;
         private Resource VertexBuffer;
         private VertexBufferView VertexBufferView;
+        private Resource ConstantBuffer;
+        private DescriptorHeap ConstantBufferViewHeap;
+        private ConstantBufferDataStruct ConstantBufferData;
+        private IntPtr ConstantBufferPtr;
 
         public void Dispose()
         {
@@ -114,6 +123,15 @@ namespace D3D12HelloConstBuffers
             RenderTargetViewHeap = Device.CreateDescriptorHeap(rtvHeapDesc);
             RtvDescriptorSize = Device.GetDescriptorHandleIncrementSize(DescriptorHeapType.RenderTargetView);
 
+            // コンスタントバッファビューのデスクリプタヒープを作成します。
+            var cbvHeapDesc = new DescriptorHeapDescription()
+            {
+                DescriptorCount = 1,
+                Type = DescriptorHeapType.ConstantBufferViewShaderResourceViewUnorderedAccessView,
+                Flags = DescriptorHeapFlags.ShaderVisible,
+            };
+            ConstantBufferViewHeap = Device.CreateDescriptorHeap(cbvHeapDesc);
+
             var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             for (var i = 0; i < FrameCount; i++)
             {
@@ -127,11 +145,24 @@ namespace D3D12HelloConstBuffers
 
         private void LoadAssets()
         {
-            // 空のルートシグネチャを作成します。
-            var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout);
+            // コンスタントバッファを扱うルートシグネチャを生成します。
+            var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout,
+                // Root Parameters
+                new[]
+                {
+                    // ルートパラメータ 0:
+                    // レジスタ 0 のコンスタントバッファ（頂点バッファからのみ参照可能）
+                    new RootParameter(ShaderVisibility.Vertex,
+                        new DescriptorRange()
+                        {
+                            RangeType = DescriptorRangeType.ConstantBufferView,
+                            BaseShaderRegister = 0,
+                            OffsetInDescriptorsFromTableStart = int.MinValue,
+                            DescriptorCount = 1,
+                        })
+                });
             RootSignature = Device.CreateRootSignature(rootSignatureDesc.Serialize());
 
-            // シェーダをロードします。デバッグビルドのときは、デバッグフラグを立てます。
 #if DEBUG
             var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
             var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
@@ -140,14 +171,12 @@ namespace D3D12HelloConstBuffers
             var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "vs_5_0"));
 #endif
 
-            // 頂点レイアウトを定義します。
             var inputElementDescs = new []
             {
                 new InputElement("POSITION", 0, Format.R32G32B32_Float, 0, 0),
                 new InputElement("COLOR", 0, Format.R32G32B32A32_Float, 12, 0),
             };
 
-            // グラフィックスパイプラインステートオブジェクトを作成します。
             var psoDesc = new GraphicsPipelineStateDescription()
             {
                 InputLayout = new InputLayoutDescription(inputElementDescs),
@@ -176,7 +205,6 @@ namespace D3D12HelloConstBuffers
             CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocator, PipelineState);
             CommandList.Close();
 
-            // 頂点データを定義します。
             float aspectRatio = Viewport.Width / Viewport.Height;
             var triangleVertices = new[]
             {
@@ -186,11 +214,6 @@ namespace D3D12HelloConstBuffers
             };
             var vertexBufferSize = Utilities.SizeOf(triangleVertices);
 
-            // 頂点バッファを作成します。
-            //
-            // 注意：頂点バッファの様はスタティックなデータを配置するためにアップロードヒープを使うのは適しません。
-            // 正しくは、アップロードヒープにおいた頂点データを HeapType.Default のバッファにコピーするなどしてください。
-            // ここでは、簡略化のためにアップロードヒープをそのまま使います。
             VertexBuffer = Device.CreateCommittedResource(
                 new HeapProperties(HeapType.Upload), 
                 HeapFlags.None, 
@@ -198,20 +221,39 @@ namespace D3D12HelloConstBuffers
                 ResourceStates.GenericRead
                 );
 
-            // 頂点データを頂点バッファに書き込みます。
             var pVertexDataBegin = VertexBuffer.Map(0);
             {
                 Utilities.Write(pVertexDataBegin, triangleVertices, 0, triangleVertices.Length);
             }
             VertexBuffer.Unmap(0);
 
-            // 頂点バッファビューを作成します。
             VertexBufferView = new VertexBufferView()
             {
                 BufferLocation = VertexBuffer.GPUVirtualAddress,
                 StrideInBytes = Utilities.SizeOf<Vertex>(),
                 SizeInBytes = vertexBufferSize,
             };
+
+            // コンスタントバッファを作成します。
+            ConstantBuffer = Device.CreateCommittedResource(
+                new HeapProperties(HeapType.Upload),
+                HeapFlags.None,
+                ResourceDescription.Buffer(1024 * 64),
+                ResourceStates.GenericRead
+                );
+
+            // コンスタントバッファビューを作成します。
+            var cbvDesc = new ConstantBufferViewDescription()
+            {
+                BufferLocation = ConstantBuffer.GPUVirtualAddress,
+                SizeInBytes = (Utilities.SizeOf<ConstantBufferDataStruct>() + 255) & ~255,
+            };
+            Device.CreateConstantBufferView(cbvDesc, ConstantBufferViewHeap.CPUDescriptorHandleForHeapStart);
+
+            // コンスタントバッファを初期化します。
+            // コンスタントバッファは、アプリ終了までマップしたままにします。
+            ConstantBufferPtr = ConstantBuffer.Map(0);
+            Utilities.Write(ConstantBufferPtr, ref ConstantBufferData);
 
             Fence = Device.CreateFence(0, FenceFlags.None);
             FenceValue = 1;
@@ -221,6 +263,16 @@ namespace D3D12HelloConstBuffers
 
         internal void Update()
         {
+            const float translationSpeed = 0.005f;
+            const float offsetBounds = 1.25f;
+
+            ConstantBufferData.Offset.X += translationSpeed;
+            if(ConstantBufferData.Offset.X > offsetBounds)
+            {
+                ConstantBufferData.Offset.X = -offsetBounds;
+            }
+
+            Utilities.Write(ConstantBufferPtr, ref ConstantBufferData);
         }
 
         internal void Render()
@@ -240,8 +292,13 @@ namespace D3D12HelloConstBuffers
 
             CommandList.Reset(CommandAllocator, PipelineState);
 
-            // 必要な各種ステートを設定します。
             CommandList.SetGraphicsRootSignature(RootSignature);
+
+            // 使用するデスクリプタヒープを設定します。
+            CommandList.SetDescriptorHeaps(1, new[] { ConstantBufferViewHeap });
+            // デスクリプタテーブルのルートパラメータ 0 番に対応するデスクリプタとして、コンスタントバッファビューを渡します。
+            CommandList.SetGraphicsRootDescriptorTable(0, ConstantBufferViewHeap.GPUDescriptorHandleForHeapStart);
+
             CommandList.SetViewport(Viewport);
             CommandList.SetScissorRectangles(ScissorRect);
 
@@ -250,10 +307,8 @@ namespace D3D12HelloConstBuffers
             var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             rtvDescHandle += FrameIndex * RtvDescriptorSize;
 
-            // レンダーターゲットを設定します。
             CommandList.SetRenderTargets(rtvDescHandle, null);
 
-            // コマンドを積み込みます。
             CommandList.ClearRenderTargetView(rtvDescHandle, new Color4(0.0f, 0.2f, 0.4f, 1.0f), 0, null);
 
             CommandList.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
