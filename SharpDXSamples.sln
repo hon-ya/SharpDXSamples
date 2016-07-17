@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloWindow", "D3D12He
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloTriangle", "D3D12HelloTriangle\D3D12HelloTriangle.csproj", "{2BEB24D7-DAD6-4793-A194-ACEB5F0EFCDD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloFrameBuffering", "D3D12HelloFrameBuffering\D3D12HelloFrameBuffering.csproj", "{BDC43B94-389E-4E26-90BF-482D29183071}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{2BEB24D7-DAD6-4793-A194-ACEB5F0EFCDD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2BEB24D7-DAD6-4793-A194-ACEB5F0EFCDD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2BEB24D7-DAD6-4793-A194-ACEB5F0EFCDD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BDC43B94-389E-4E26-90BF-482D29183071}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BDC43B94-389E-4E26-90BF-482D29183071}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BDC43B94-389E-4E26-90BF-482D29183071}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BDC43B94-389E-4E26-90BF-482D29183071}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
