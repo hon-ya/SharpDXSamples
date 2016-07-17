@@ -27,6 +27,7 @@ namespace D3D12HelloWindow
 
         public void Dispose()
         {
+            // GPU によるリソースの参照が完了するのを待ってから、リソースの解放を始めます。
             this.WaitForPreviousFrame();
 
             foreach(var target in this.RenderTargets)
@@ -55,6 +56,7 @@ namespace D3D12HelloWindow
             var height = form.ClientSize.Height;
 
 #if DEBUG
+            // デバッグレイヤを有効にします。
             {
                 DebugInterface.Get().EnableDebugLayer();
             }
@@ -64,9 +66,11 @@ namespace D3D12HelloWindow
 
             using (var factory = new Factory4())
             {
+                // コマンドキューを作成します。
                 var commandQueueDesc = new CommandQueueDescription(CommandListType.Direct);
                 this.CommandQueue = this.Device.CreateCommandQueue(commandQueueDesc);
 
+                // スワップチェインを作成します。
                 var swapChainDesc = new SwapChainDescription()
                 {
                     BufferCount = FrameCount,
@@ -78,15 +82,19 @@ namespace D3D12HelloWindow
                     SampleDescription = new SampleDescription(1, 0),
                     IsWindowed = true,
                 };
+
+                // スワップチェインを作成するときの device 引数には、キューを渡す必要があります。
                 using (var tempSwapChain = new SwapChain(factory, this.CommandQueue, swapChainDesc))
                 {
                     this.SwapChain = tempSwapChain.QueryInterface<SwapChain3>();
                     this.FrameIndex = this.SwapChain.CurrentBackBufferIndex;
                 }
 
+                // Alt+Enter による全画面モードへの遷移を禁止します。
                 factory.MakeWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
             }
 
+            // レンダーターゲットビュー用のデスクリプタヒープを作成します。
             var rtvHeapDesc = new DescriptorHeapDescription()
             {
                 DescriptorCount = FrameCount,
@@ -96,6 +104,7 @@ namespace D3D12HelloWindow
             this.RenderTargetViewHeap = this.Device.CreateDescriptorHeap(rtvHeapDesc);
             this.RtvDescriptorSize = this.Device.GetDescriptorHandleIncrementSize(DescriptorHeapType.RenderTargetView);
 
+            // フレームごとにレンダーターゲットビューを作成します。
             var rtvDescHandle = this.RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             for(var i = 0; i < FrameCount; i++)
             {
@@ -109,12 +118,17 @@ namespace D3D12HelloWindow
 
         private void LoadAssets()
         {
+            // コマンドリストを作成します。
             this.CommandList = this.Device.CreateCommandList(CommandListType.Direct, this.CommandAllocator, null);
+
+            // コマンドリストの作成直後はレコードモードになっているので、ここでいったん閉じます。
             this.CommandList.Close();
 
+            // 同期処理に利用するフェンスを作成します。
             this.Fence = this.Device.CreateFence(0, FenceFlags.None);
             this.FenceValue = 1;
 
+            // フェンスの同期イベントを扱うイベントオブジェクトを作成します。
             this.FenceEvent = new AutoResetEvent(false);
         }
 
@@ -124,28 +138,37 @@ namespace D3D12HelloWindow
 
         internal void Render()
         {
+            // コマンドリストにコマンドを積み込みます。
             this.PopulateCommandList();
 
+            // コマンドリストを実行します。
             this.CommandQueue.ExecuteCommandList(this.CommandList);
 
+            // フレームを表示します。
             this.SwapChain.Present(1, PresentFlags.None);
-
+            
             this.WaitForPreviousFrame();
         }
 
         private void PopulateCommandList()
         {
+            // コマンドアロケータのリセットは、このアロケータに紐付いているすべてのコマンドリストが
+            // GPU から参照されていない状態になってから行う必要があります。
             this.CommandAllocator.Reset();
 
+            // しかしながら、コマンドリストのリセットは、アロケータと異なり、GPU に実行されている最中であっても実行できます。
             this.CommandList.Reset(this.CommandAllocator, null);
 
+            // バックバッファをレンダーターゲットにします。
             this.CommandList.ResourceBarrierTransition(this.RenderTargets[this.FrameIndex], ResourceStates.Present, ResourceStates.RenderTarget);
 
             var rtvDescHandle = this.RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             rtvDescHandle += this.FrameIndex * this.RtvDescriptorSize;
 
+            // レンダーターゲットをクリアするコマンドを積み込みます。
             this.CommandList.ClearRenderTargetView(rtvDescHandle, new Color4(0.0f, 0.2f, 0.4f, 1.0f), 0, null);
 
+            // バックバッファをプレゼント可能状態にします。
             this.CommandList.ResourceBarrierTransition(this.RenderTargets[this.FrameIndex], ResourceStates.RenderTarget, ResourceStates.Present);
 
             this.CommandList.Close();
@@ -153,14 +176,22 @@ namespace D3D12HelloWindow
 
         private void WaitForPreviousFrame()
         {
+            // 注意：ここでは、直前に積み込んだコマンドの実行をすぐさま待ちますが、これはベストな選択ではありません。
+            // より効率的な同期方法については、D3D12HelloFrameBuffering サンプルを参照してください。
+
             var fence = this.FenceValue;
 
+            // シグナルし、フェンスの値をすすめます。
+            // このコマンドは、これ以前にコマンドキューに詰め込んだコマンドすべての実行が完了してから実行されます。
             this.CommandQueue.Signal(this.Fence, fence);
             this.FenceValue++;
 
+            // 前フレームの処理が完了するまで待ちます。
             if(this.Fence.CompletedValue < fence)
             {
+                // フェンスの値が指定した値に達したとき、指定のイベントをシグナルします。
                 this.Fence.SetEventOnCompletion(fence, this.FenceEvent.SafeWaitHandle.DangerousGetHandle());
+                // シグナルされるのを待ちます。
                 this.FenceEvent.WaitOne();
             }
 
