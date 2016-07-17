@@ -28,26 +28,26 @@ namespace D3D12HelloWindow
         public void Dispose()
         {
             // GPU によるリソースの参照が完了するのを待ってから、リソースの解放を始めます。
-            this.WaitForPreviousFrame();
+            WaitForPreviousFrame();
 
-            foreach(var target in this.RenderTargets)
+            foreach(var target in RenderTargets)
             {
                 target.Dispose();
             }
 
-            this.CommandAllocator.Dispose();
-            this.CommandQueue.Dispose();
-            this.RenderTargetViewHeap.Dispose();
-            this.CommandList.Dispose();
-            this.Fence.Dispose();
-            this.SwapChain.Dispose();
-            this.Device.Dispose();
+            CommandAllocator.Dispose();
+            CommandQueue.Dispose();
+            RenderTargetViewHeap.Dispose();
+            CommandList.Dispose();
+            Fence.Dispose();
+            SwapChain.Dispose();
+            Device.Dispose();
         }
 
         internal void Initialize(RenderForm form)
         {
-            this.LoadPipeline(form);
-            this.LoadAssets();
+            LoadPipeline(form);
+            LoadAssets();
         }
 
         private void LoadPipeline(RenderForm form)
@@ -62,13 +62,13 @@ namespace D3D12HelloWindow
             }
 #endif
 
-            this.Device = new Device(null, SharpDX.Direct3D.FeatureLevel.Level_11_0);
+            Device = new Device(null, SharpDX.Direct3D.FeatureLevel.Level_11_0);
 
             using (var factory = new Factory4())
             {
                 // コマンドキューを作成します。
                 var commandQueueDesc = new CommandQueueDescription(CommandListType.Direct);
-                this.CommandQueue = this.Device.CreateCommandQueue(commandQueueDesc);
+                CommandQueue = Device.CreateCommandQueue(commandQueueDesc);
 
                 // スワップチェインを作成します。
                 var swapChainDesc = new SwapChainDescription()
@@ -84,10 +84,10 @@ namespace D3D12HelloWindow
                 };
 
                 // スワップチェインを作成するときの device 引数には、キューを渡す必要があります。
-                using (var tempSwapChain = new SwapChain(factory, this.CommandQueue, swapChainDesc))
+                using (var tempSwapChain = new SwapChain(factory, CommandQueue, swapChainDesc))
                 {
-                    this.SwapChain = tempSwapChain.QueryInterface<SwapChain3>();
-                    this.FrameIndex = this.SwapChain.CurrentBackBufferIndex;
+                    SwapChain = tempSwapChain.QueryInterface<SwapChain3>();
+                    FrameIndex = SwapChain.CurrentBackBufferIndex;
                 }
 
                 // Alt+Enter による全画面モードへの遷移を禁止します。
@@ -101,35 +101,35 @@ namespace D3D12HelloWindow
                 Type = DescriptorHeapType.RenderTargetView,
                 Flags = DescriptorHeapFlags.None,
             };
-            this.RenderTargetViewHeap = this.Device.CreateDescriptorHeap(rtvHeapDesc);
-            this.RtvDescriptorSize = this.Device.GetDescriptorHandleIncrementSize(DescriptorHeapType.RenderTargetView);
+            RenderTargetViewHeap = Device.CreateDescriptorHeap(rtvHeapDesc);
+            RtvDescriptorSize = Device.GetDescriptorHandleIncrementSize(DescriptorHeapType.RenderTargetView);
 
             // フレームごとにレンダーターゲットビューを作成します。
-            var rtvDescHandle = this.RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
+            var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             for(var i = 0; i < FrameCount; i++)
             {
-                this.RenderTargets[i] = this.SwapChain.GetBackBuffer<Resource>(i);
-                this.Device.CreateRenderTargetView(this.RenderTargets[i], null, rtvDescHandle);
-                rtvDescHandle += this.RtvDescriptorSize;
+                RenderTargets[i] = SwapChain.GetBackBuffer<Resource>(i);
+                Device.CreateRenderTargetView(RenderTargets[i], null, rtvDescHandle);
+                rtvDescHandle += RtvDescriptorSize;
             }
 
-            this.CommandAllocator = this.Device.CreateCommandAllocator(CommandListType.Direct);
+            CommandAllocator = Device.CreateCommandAllocator(CommandListType.Direct);
         }
 
         private void LoadAssets()
         {
             // コマンドリストを作成します。
-            this.CommandList = this.Device.CreateCommandList(CommandListType.Direct, this.CommandAllocator, null);
+            CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocator, null);
 
             // コマンドリストの作成直後はレコードモードになっているので、ここでいったん閉じます。
-            this.CommandList.Close();
+            CommandList.Close();
 
             // 同期処理に利用するフェンスを作成します。
-            this.Fence = this.Device.CreateFence(0, FenceFlags.None);
-            this.FenceValue = 1;
+            Fence = Device.CreateFence(0, FenceFlags.None);
+            FenceValue = 1;
 
             // フェンスの同期イベントを扱うイベントオブジェクトを作成します。
-            this.FenceEvent = new AutoResetEvent(false);
+            FenceEvent = new AutoResetEvent(false);
         }
 
         internal void Update()
@@ -139,39 +139,39 @@ namespace D3D12HelloWindow
         internal void Render()
         {
             // コマンドリストにコマンドを積み込みます。
-            this.PopulateCommandList();
+            PopulateCommandList();
 
             // コマンドリストを実行します。
-            this.CommandQueue.ExecuteCommandList(this.CommandList);
+            CommandQueue.ExecuteCommandList(CommandList);
 
             // フレームを表示します。
-            this.SwapChain.Present(1, PresentFlags.None);
+            SwapChain.Present(1, PresentFlags.None);
             
-            this.WaitForPreviousFrame();
+            WaitForPreviousFrame();
         }
 
         private void PopulateCommandList()
         {
             // コマンドアロケータのリセットは、このアロケータに紐付いているすべてのコマンドリストが
             // GPU から参照されていない状態になってから行う必要があります。
-            this.CommandAllocator.Reset();
+            CommandAllocator.Reset();
 
             // しかしながら、コマンドリストのリセットは、アロケータと異なり、GPU に実行されている最中であっても実行できます。
-            this.CommandList.Reset(this.CommandAllocator, null);
+            CommandList.Reset(CommandAllocator, null);
 
             // バックバッファをレンダーターゲットにします。
-            this.CommandList.ResourceBarrierTransition(this.RenderTargets[this.FrameIndex], ResourceStates.Present, ResourceStates.RenderTarget);
+            CommandList.ResourceBarrierTransition(RenderTargets[FrameIndex], ResourceStates.Present, ResourceStates.RenderTarget);
 
-            var rtvDescHandle = this.RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
-            rtvDescHandle += this.FrameIndex * this.RtvDescriptorSize;
+            var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
+            rtvDescHandle += FrameIndex * RtvDescriptorSize;
 
             // レンダーターゲットをクリアするコマンドを積み込みます。
-            this.CommandList.ClearRenderTargetView(rtvDescHandle, new Color4(0.0f, 0.2f, 0.4f, 1.0f), 0, null);
+            CommandList.ClearRenderTargetView(rtvDescHandle, new Color4(0.0f, 0.2f, 0.4f, 1.0f), 0, null);
 
             // バックバッファをプレゼント可能状態にします。
-            this.CommandList.ResourceBarrierTransition(this.RenderTargets[this.FrameIndex], ResourceStates.RenderTarget, ResourceStates.Present);
+            CommandList.ResourceBarrierTransition(RenderTargets[FrameIndex], ResourceStates.RenderTarget, ResourceStates.Present);
 
-            this.CommandList.Close();
+            CommandList.Close();
         }
 
         private void WaitForPreviousFrame()
@@ -179,23 +179,23 @@ namespace D3D12HelloWindow
             // 注意：ここでは、直前に積み込んだコマンドの実行をすぐさま待ちますが、これはベストな選択ではありません。
             // より効率的な同期方法については、D3D12HelloFrameBuffering サンプルを参照してください。
 
-            var fence = this.FenceValue;
+            var fence = FenceValue;
 
             // シグナルし、フェンスの値をすすめます。
             // このコマンドは、これ以前にコマンドキューに詰め込んだコマンドすべての実行が完了してから実行されます。
-            this.CommandQueue.Signal(this.Fence, fence);
-            this.FenceValue++;
+            CommandQueue.Signal(Fence, fence);
+            FenceValue++;
 
             // 前フレームの処理が完了するまで待ちます。
-            if(this.Fence.CompletedValue < fence)
+            if(Fence.CompletedValue < fence)
             {
                 // フェンスの値が指定した値に達したとき、指定のイベントをシグナルします。
-                this.Fence.SetEventOnCompletion(fence, this.FenceEvent.SafeWaitHandle.DangerousGetHandle());
+                Fence.SetEventOnCompletion(fence, FenceEvent.SafeWaitHandle.DangerousGetHandle());
                 // シグナルされるのを待ちます。
-                this.FenceEvent.WaitOne();
+                FenceEvent.WaitOne();
             }
 
-            this.FrameIndex = this.SwapChain.CurrentBackBufferIndex;
+            FrameIndex = SwapChain.CurrentBackBufferIndex;
         }
     }
 }
