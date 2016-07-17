@@ -10,20 +10,20 @@ namespace D3D12HelloWindow
 
     internal class HelloWindow : IDisposable
     {
-        public const int FrameCount = 2;
+        private const int FrameCount = 2;
 
-        public Device Device { get; set; }
-        public CommandQueue CommandQueue { get; private set; }
-        public SwapChain3 SwapChain { get; set; }
-        public int FrameIndex { get; private set; }
-        public DescriptorHeap RenderTargetViewHeap { get; set; }
-        public int RtvDescriptorSize { get; set; }
-        public Resource[] RenderTargets { get; set; } = new Resource[FrameCount];
-        public CommandAllocator CommandAllocator { get; private set; }
-        public GraphicsCommandList CommandList { get; private set; }
-        public int FenceValue { get; private set; }
-        public Fence Fence { get; private set; }
-        public AutoResetEvent FenceEvent { get; private set; }
+        private Device Device;
+        private CommandQueue CommandQueue;
+        private SwapChain3 SwapChain;
+        private int FrameIndex;
+        private DescriptorHeap RenderTargetViewHeap;
+        private int RtvDescriptorSize;
+        private Resource[] RenderTargets = new Resource[FrameCount];
+        private CommandAllocator CommandAllocator;
+        private GraphicsCommandList CommandList;
+        private int FenceValue;
+        private Fence Fence;
+        private AutoResetEvent FenceEvent;
 
         public void Dispose()
         {

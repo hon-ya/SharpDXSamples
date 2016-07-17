@@ -11,32 +11,32 @@ namespace D3D12HelloFrameBuffering
 
     internal class HelloFrameBuffering : IDisposable
     {
-        struct Vertex
+        private struct Vertex
         {
             public Vector3 Position;
             public Vector4 Color;
         };
 
-        public const int FrameCount = 2;
+        private const int FrameCount = 2;
 
-        public Device Device { get; set; }
-        public CommandQueue CommandQueue { get; private set; }
-        public SwapChain3 SwapChain { get; set; }
-        public int FrameIndex { get; private set; }
-        public DescriptorHeap RenderTargetViewHeap { get; set; }
-        public int RtvDescriptorSize { get; set; }
-        public Resource[] RenderTargets { get; set; } = new Resource[FrameCount];
-        public CommandAllocator[] CommandAllocators { get; private set; } = new CommandAllocator[FrameCount];
-        public GraphicsCommandList CommandList { get; private set; }
-        public int[] FenceValues { get; private set; } = new int[FrameCount];
-        public Fence Fence { get; private set; }
-        public AutoResetEvent FenceEvent { get; private set; }
-        public ViewportF Viewport { get; private set; }
-        public Rectangle ScissorRect { get; private set; }
-        public RootSignature RootSignature { get; private set; }
-        public PipelineState PipelineState { get; private set; }
-        public Resource VertexBuffer { get; private set; }
-        public VertexBufferView VertexBufferView { get; private set; }
+        private Device Device;
+        private CommandQueue CommandQueue;
+        private SwapChain3 SwapChain;
+        private int FrameIndex;
+        private DescriptorHeap RenderTargetViewHeap;
+        private int RtvDescriptorSize;
+        private Resource[] RenderTargets = new Resource[FrameCount];
+        private CommandAllocator[] CommandAllocators = new CommandAllocator[FrameCount];
+        private GraphicsCommandList CommandList;
+        private int[] FenceValues = new int[FrameCount];
+        private Fence Fence;
+        private AutoResetEvent FenceEvent;
+        private ViewportF Viewport;
+        private Rectangle ScissorRect;
+        private RootSignature RootSignature;
+        private PipelineState PipelineState;
+        private Resource VertexBuffer;
+        private VertexBufferView VertexBufferView;
 
         public void Dispose()
         {
