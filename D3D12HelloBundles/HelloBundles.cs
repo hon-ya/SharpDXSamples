@@ -2,14 +2,13 @@
 using System.Threading;
 using SharpDX.DXGI;
 
-namespace D3D12HelloFrameBuffering
+namespace D3D12HelloBundles
 {
     using SharpDX;
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
-    using System.Collections.Generic;
 
-    internal class HelloFrameBuffering : IDisposable
+    internal class HelloBundles : IDisposable
     {
         private struct Vertex
         {
@@ -26,9 +25,9 @@ namespace D3D12HelloFrameBuffering
         private DescriptorHeap RenderTargetViewHeap;
         private int RtvDescriptorSize;
         private Resource[] RenderTargets = new Resource[FrameCount];
-        private CommandAllocator[] CommandAllocators = new CommandAllocator[FrameCount];
+        private CommandAllocator CommandAllocator;
         private GraphicsCommandList CommandList;
-        private int[] FenceValues = new int[FrameCount];
+        private int FenceValue;
         private Fence Fence;
         private AutoResetEvent FenceEvent;
         private ViewportF Viewport;
@@ -37,19 +36,19 @@ namespace D3D12HelloFrameBuffering
         private PipelineState PipelineState;
         private Resource VertexBuffer;
         private VertexBufferView VertexBufferView;
+        private CommandAllocator BundleAllocator;
+        private GraphicsCommandList Bundle;
 
         public void Dispose()
         {
-            WaitForGpu();
+            WaitForPreviousFrame();
 
             foreach (var target in RenderTargets)
             {
                 target.Dispose();
             }
-            foreach(var allocator in CommandAllocators)
-            {
-                allocator.Dispose();
-            }
+
+            CommandAllocator.Dispose();
             CommandQueue.Dispose();
             RootSignature.Dispose();
             RenderTargetViewHeap.Dispose();
@@ -117,18 +116,18 @@ namespace D3D12HelloFrameBuffering
             RenderTargetViewHeap = Device.CreateDescriptorHeap(rtvHeapDesc);
             RtvDescriptorSize = Device.GetDescriptorHandleIncrementSize(DescriptorHeapType.RenderTargetView);
 
-            // 各フレームごとに必要となるリソースを作成します。
             var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             for (var i = 0; i < FrameCount; i++)
             {
-                // レンダーターゲットビューを作成します。
                 RenderTargets[i] = SwapChain.GetBackBuffer<Resource>(i);
                 Device.CreateRenderTargetView(RenderTargets[i], null, rtvDescHandle);
                 rtvDescHandle += RtvDescriptorSize;
-
-                // コマンドバッファアロケータを作成します。
-                CommandAllocators[i] = Device.CreateCommandAllocator(CommandListType.Direct);
             }
+
+            // Direct 用のコマンドアロケータを作成します。
+            CommandAllocator = Device.CreateCommandAllocator(CommandListType.Direct);
+            // Bundle 用のコマンドアロケータを作成します。
+            BundleAllocator = Device.CreateCommandAllocator(CommandListType.Bundle);
         }
 
         private void LoadAssets()
@@ -175,10 +174,10 @@ namespace D3D12HelloFrameBuffering
 
             PipelineState = Device.CreateGraphicsPipelineState(psoDesc);
 
-            CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocators[FrameIndex], PipelineState);
+            CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocator, PipelineState);
             CommandList.Close();
 
-            // 頂点データを定義します。
+
             float aspectRatio = Viewport.Width / Viewport.Height;
             var triangleVertices = new[]
             {
@@ -208,8 +207,16 @@ namespace D3D12HelloFrameBuffering
                 SizeInBytes = vertexBufferSize,
             };
 
-            Fence = Device.CreateFence(FenceValues[FrameIndex], FenceFlags.None);
-            FenceValues[FrameIndex]++;
+            // バンドルを作成し、コマンドを積み込みます。
+            Bundle = Device.CreateCommandList(CommandListType.Bundle, BundleAllocator, PipelineState);
+            Bundle.SetGraphicsRootSignature(RootSignature);
+            Bundle.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
+            Bundle.SetVertexBuffer(0, VertexBufferView);
+            Bundle.DrawInstanced(3, 1, 0, 0);
+            Bundle.Close();
+
+            Fence = Device.CreateFence(0, FenceFlags.None);
+            FenceValue = 1;
 
             FenceEvent = new AutoResetEvent(false);
         }
@@ -226,14 +233,14 @@ namespace D3D12HelloFrameBuffering
 
             SwapChain.Present(1, PresentFlags.None);
 
-            MoveToNextFrame();
+            WaitForPreviousFrame();
         }
 
         private void PopulateCommandList()
         {
-            // フレームごとに、利用するコマンドアロケータを切り替えます。
-            CommandAllocators[FrameIndex].Reset();
-            CommandList.Reset(CommandAllocators[FrameIndex], PipelineState);
+            CommandAllocator.Reset();
+
+            CommandList.Reset(CommandAllocator, PipelineState);
 
             CommandList.SetGraphicsRootSignature(RootSignature);
             CommandList.SetViewport(Viewport);
@@ -248,50 +255,28 @@ namespace D3D12HelloFrameBuffering
 
             CommandList.ClearRenderTargetView(rtvDescHandle, new Color4(0.0f, 0.2f, 0.4f, 1.0f), 0, null);
 
-            CommandList.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
-            CommandList.SetVertexBuffer(0, VertexBufferView);
-            CommandList.DrawInstanced(3, 1, 0, 0);
+            // バンドルを積み込みます。
+            CommandList.ExecuteBundle(Bundle);
 
             CommandList.ResourceBarrierTransition(RenderTargets[FrameIndex], ResourceStates.RenderTarget, ResourceStates.Present);
 
             CommandList.Close();
         }
 
-        /// <summary>
-        /// 現在のフレームの処理の完了を待ちます。
-        /// </summary>
-        private void WaitForGpu()
+        private void WaitForPreviousFrame()
         {
-            // フェンスをシグナルし、即、待ちに入ります。
-            CommandQueue.Signal(Fence, FenceValues[FrameIndex]);
+            var fence = FenceValue;
 
-            Fence.SetEventOnCompletion(FenceValues[FrameIndex], FenceEvent.SafeWaitHandle.DangerousGetHandle());
-            FenceEvent.WaitOne();
+            CommandQueue.Signal(Fence, fence);
+            FenceValue++;
 
-            FenceValues[FrameIndex]++;
-        }
-
-        /// <summary>
-        /// 次のフレームへ処理を移行します。
-        /// </summary>
-        private void MoveToNextFrame()
-        {
-            // フェンスをシグナルするコマンドを積み込みます。
-            var currentFenceValue = FenceValues[FrameIndex];
-            CommandQueue.Signal(Fence, currentFenceValue);
-
-            // フレームインデックスを更新します。
-            FrameIndex = SwapChain.CurrentBackBufferIndex;
-
-            // 次のフレームで使うリソースの準備がまだ整っていない場合は、これを待ちます。
-            if (Fence.CompletedValue < FenceValues[FrameIndex])
+            if (Fence.CompletedValue < fence)
             {
-                Fence.SetEventOnCompletion(FenceValues[FrameIndex], FenceEvent.SafeWaitHandle.DangerousGetHandle());
+                Fence.SetEventOnCompletion(fence, FenceEvent.SafeWaitHandle.DangerousGetHandle());
                 FenceEvent.WaitOne();
             }
 
-            // 次に使うフェンスの値を更新します。
-            FenceValues[FrameIndex] = currentFenceValue + 1;
+            FrameIndex = SwapChain.CurrentBackBufferIndex;
         }
     }
 }
