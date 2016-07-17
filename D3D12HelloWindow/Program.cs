@@ -11,7 +11,7 @@ namespace D3D12HelloWindow
         [STAThread]
         static void Main()
         {
-            var form = new RenderForm("HelloWindow")
+            var form = new RenderForm("D3D12 Hello Window")
             {
                 Width = 1280,
                 Height = 720,
