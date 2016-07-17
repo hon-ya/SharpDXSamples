@@ -7,6 +7,7 @@ namespace D3D12HelloFrameBuffering
     using SharpDX;
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
+    using System.Collections.Generic;
 
     internal class HelloFrameBuffering : IDisposable
     {
@@ -25,9 +26,9 @@ namespace D3D12HelloFrameBuffering
         public DescriptorHeap RenderTargetViewHeap { get; set; }
         public int RtvDescriptorSize { get; set; }
         public Resource[] RenderTargets { get; set; } = new Resource[FrameCount];
-        public CommandAllocator CommandAllocator { get; private set; }
+        public CommandAllocator[] CommandAllocators { get; private set; } = new CommandAllocator[FrameCount];
         public GraphicsCommandList CommandList { get; private set; }
-        public int FenceValue { get; private set; }
+        public int[] FenceValues { get; private set; } = new int[FrameCount];
         public Fence Fence { get; private set; }
         public AutoResetEvent FenceEvent { get; private set; }
         public ViewportF Viewport { get; private set; }
@@ -39,14 +40,16 @@ namespace D3D12HelloFrameBuffering
 
         public void Dispose()
         {
-            this.WaitForPreviousFrame();
+            this.WaitForGpu();
 
             foreach (var target in this.RenderTargets)
             {
                 target.Dispose();
             }
-
-            this.CommandAllocator.Dispose();
+            foreach(var allocator in this.CommandAllocators)
+            {
+                allocator.Dispose();
+            }
             this.CommandQueue.Dispose();
             this.RootSignature.Dispose();
             this.RenderTargetViewHeap.Dispose();
@@ -114,15 +117,18 @@ namespace D3D12HelloFrameBuffering
             this.RenderTargetViewHeap = this.Device.CreateDescriptorHeap(rtvHeapDesc);
             this.RtvDescriptorSize = this.Device.GetDescriptorHandleIncrementSize(DescriptorHeapType.RenderTargetView);
 
+            // 各フレームごとに必要となるリソースを作成します。
             var rtvDescHandle = this.RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             for (var i = 0; i < FrameCount; i++)
             {
+                // レンダーターゲットビューを作成します。
                 this.RenderTargets[i] = this.SwapChain.GetBackBuffer<Resource>(i);
                 this.Device.CreateRenderTargetView(this.RenderTargets[i], null, rtvDescHandle);
                 rtvDescHandle += this.RtvDescriptorSize;
-            }
 
-            this.CommandAllocator = this.Device.CreateCommandAllocator(CommandListType.Direct);
+                // コマンドバッファアロケータを作成します。
+                this.CommandAllocators[i] = this.Device.CreateCommandAllocator(CommandListType.Direct);
+            }
         }
 
         private void LoadAssets()
@@ -173,7 +179,7 @@ namespace D3D12HelloFrameBuffering
 
             this.PipelineState = this.Device.CreateGraphicsPipelineState(psoDesc);
 
-            this.CommandList = this.Device.CreateCommandList(CommandListType.Direct, this.CommandAllocator, this.PipelineState);
+            this.CommandList = this.Device.CreateCommandList(CommandListType.Direct, this.CommandAllocators[this.FrameIndex], this.PipelineState);
             this.CommandList.Close();
 
 
@@ -214,8 +220,8 @@ namespace D3D12HelloFrameBuffering
                 SizeInBytes = vertexBufferSize,
             };
 
-            this.Fence = this.Device.CreateFence(0, FenceFlags.None);
-            this.FenceValue = 1;
+            this.Fence = this.Device.CreateFence(this.FenceValues[this.FrameIndex], FenceFlags.None);
+            this.FenceValues[this.FrameIndex]++;
 
             this.FenceEvent = new AutoResetEvent(false);
         }
@@ -237,9 +243,9 @@ namespace D3D12HelloFrameBuffering
 
         private void PopulateCommandList()
         {
-            this.CommandAllocator.Reset();
+            this.CommandAllocators[this.FrameIndex].Reset();
 
-            this.CommandList.Reset(this.CommandAllocator, this.PipelineState);
+            this.CommandList.Reset(this.CommandAllocators[this.FrameIndex], this.PipelineState);
 
             // 必要な各種ステートを設定します。
             this.CommandList.SetGraphicsRootSignature(this.RootSignature);
@@ -266,20 +272,32 @@ namespace D3D12HelloFrameBuffering
             this.CommandList.Close();
         }
 
+        private void WaitForGpu()
+        {
+            this.CommandQueue.Signal(this.Fence, this.FenceValues[this.FrameIndex]);
+
+            this.Fence.SetEventOnCompletion(this.FenceValues[this.FrameIndex], this.FenceEvent.SafeWaitHandle.DangerousGetHandle());
+
+            this.FenceValues[this.FrameIndex]++;
+        }
+
         private void WaitForPreviousFrame()
         {
-            var fence = this.FenceValue;
+            // フェンスをシグナルするコマンドを積み込み
+            var currentFenceValue = this.FenceValues[this.FrameIndex];
+            this.CommandQueue.Signal(this.Fence, currentFenceValue);
 
-            this.CommandQueue.Signal(this.Fence, fence);
-            this.FenceValue++;
+            // フレームインデックスの更新
+            this.FrameIndex = this.SwapChain.CurrentBackBufferIndex;
 
-            if (this.Fence.CompletedValue < fence)
+            // 次のフレームで使うリソースの準備がまだ整っていない場合は、これを待つ
+            if (this.Fence.CompletedValue < this.FenceValues[this.FrameIndex])
             {
-                this.Fence.SetEventOnCompletion(fence, this.FenceEvent.SafeWaitHandle.DangerousGetHandle());
+                this.Fence.SetEventOnCompletion(this.FenceValues[this.FrameIndex], this.FenceEvent.SafeWaitHandle.DangerousGetHandle());
                 this.FenceEvent.WaitOne();
             }
 
-            this.FrameIndex = this.SwapChain.CurrentBackBufferIndex;
+            this.FenceValues[this.FrameIndex] = currentFenceValue + 1;
         }
     }
 }
