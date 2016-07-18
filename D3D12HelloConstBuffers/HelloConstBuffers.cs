@@ -151,7 +151,7 @@ namespace D3D12HelloConstBuffers
                 new[]
                 {
                     // ルートパラメータ 0:
-                    // レジスタ 0 のコンスタントバッファ（頂点バッファからのみ参照可能）
+                    // コンスタントバッファレジスタ 0 のコンスタントバッファ（頂点シェーダからのみ参照）
                     new RootParameter(ShaderVisibility.Vertex,
                         new DescriptorRange()
                         {
