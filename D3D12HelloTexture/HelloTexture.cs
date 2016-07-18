@@ -257,23 +257,58 @@ namespace D3D12HelloTexture
 
             var uploadBufferSize = GetRequiredIntermediateSize(Texture, 0, 1);
 
-            // アップロード用のテクスチャリソースを作成
+            // テクスチャのバイナリデータ
+            var textureData = GenerateTextureData();
+
+            // アップロード用のテクスチャリソースを作成し、テクスチャリソースへコピーします。
+#if true
             var textureUploadHeap = Device.CreateCommittedResource(
                 new HeapProperties(CpuPageProperty.WriteBack, MemoryPool.L0),
                 HeapFlags.None,
-                ResourceDescription.Texture2D(Format.R8G8B8A8_UNorm, TextureWidth, TextureHeight),
+                textureDesc,
                 ResourceStates.GenericRead
                 );
-
-            var textureData = GenerateTextureData();
 
             var handle = GCHandle.Alloc(textureData, GCHandleType.Pinned);
             var ptr = Marshal.UnsafeAddrOfPinnedArrayElement(textureData, 0);
             textureUploadHeap.WriteToSubresource(0, null, ptr, TexturePixelSize * TextureWidth, textureData.Length);
             handle.Free();
 
-            // リソース間コピーを行うコマンドを積み込みます。
             CommandList.CopyTextureRegion(new TextureCopyLocation(Texture, 0), 0, 0, 0, new TextureCopyLocation(textureUploadHeap, 0), null);
+#else
+            var textureUploadHeap = Device.CreateCommittedResource(
+                new HeapProperties(HeapType.Upload),
+                HeapFlags.None,
+                ResourceDescription.Buffer(uploadBufferSize),
+                ResourceStates.GenericRead
+                );
+
+            var pTextureDataBegin = textureUploadHeap.Map(0);
+            {
+                Utilities.Write(pTextureDataBegin, textureData, 0, textureData.Length);
+            }
+            textureUploadHeap.Unmap(0);
+
+            CommandList.CopyTextureRegion(
+                new TextureCopyLocation(Texture, 0), 
+                0, 0, 0, 
+                new TextureCopyLocation(
+                    textureUploadHeap, 
+                    new PlacedSubResourceFootprint()
+                    {
+                        Footprint =
+                        {
+                            Format = textureDesc.Format,
+                            Width = (int)textureDesc.Width,
+                            Height = textureDesc.Height,
+                            Depth = 1,
+                            RowPitch = TextureWidth * TexturePixelSize,
+                        },
+                        Offset = 0
+                    }),
+                null
+                );
+#endif
             // コピー先テクスチャをシェーダリソースとして利用するためのリソースバリアを設定します。
             CommandList.ResourceBarrier(new ResourceTransitionBarrier(Texture, ResourceStates.CopyDestination, ResourceStates.PixelShaderResource));
 
