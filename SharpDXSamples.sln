@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloBundles", "D3D12H
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloConstBuffers", "D3D12HelloConstBuffers\D3D12HelloConstBuffers.csproj", "{7C667AF2-D4FD-4F89-B11C-5BF16A031BC8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloTexture", "D3D12HelloTexture\D3D12HelloTexture.csproj", "{D53D2652-5900-4488-8F32-C089971CB81D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{7C667AF2-D4FD-4F89-B11C-5BF16A031BC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7C667AF2-D4FD-4F89-B11C-5BF16A031BC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7C667AF2-D4FD-4F89-B11C-5BF16A031BC8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D53D2652-5900-4488-8F32-C089971CB81D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D53D2652-5900-4488-8F32-C089971CB81D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D53D2652-5900-4488-8F32-C089971CB81D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D53D2652-5900-4488-8F32-C089971CB81D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
