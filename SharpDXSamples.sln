@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloConstBuffers", "D
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloTexture", "D3D12HelloTexture\D3D12HelloTexture.csproj", "{D53D2652-5900-4488-8F32-C089971CB81D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12ExecuteIndirect", "D3D12ExecuteIndirect\D3D12ExecuteIndirect.csproj", "{DC586F97-F2E6-46C5-8929-3CBEF66A1E70}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +47,10 @@ Global
 		{D53D2652-5900-4488-8F32-C089971CB81D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D53D2652-5900-4488-8F32-C089971CB81D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D53D2652-5900-4488-8F32-C089971CB81D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DC586F97-F2E6-46C5-8929-3CBEF66A1E70}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DC586F97-F2E6-46C5-8929-3CBEF66A1E70}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DC586F97-F2E6-46C5-8929-3CBEF66A1E70}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DC586F97-F2E6-46C5-8929-3CBEF66A1E70}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
