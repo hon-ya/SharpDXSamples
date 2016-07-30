@@ -49,11 +49,13 @@ namespace D3D12HelloBundles
             }
 
             CommandAllocator.Dispose();
+            BundleAllocator.Dispose();
             CommandQueue.Dispose();
             RootSignature.Dispose();
             RenderTargetViewHeap.Dispose();
             PipelineState.Dispose();
             CommandList.Dispose();
+            Bundle.Dispose();
             VertexBuffer.Dispose();
             Fence.Dispose();
             SwapChain.Dispose();
@@ -90,7 +92,7 @@ namespace D3D12HelloBundles
                 var swapChainDesc = new SwapChainDescription()
                 {
                     BufferCount = FrameCount,
-                    ModeDescription = new ModeDescription(width, height, new Rational(60, 1), Format.B8G8R8A8_UNorm),
+                    ModeDescription = new ModeDescription(width, height, new Rational(60, 1), Format.R8G8B8A8_UNorm),
                     Usage = Usage.RenderTargetOutput,
                     SwapEffect = SwapEffect.FlipDiscard,
                     OutputHandle = form.Handle,

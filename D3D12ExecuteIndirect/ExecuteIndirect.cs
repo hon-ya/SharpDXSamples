@@ -141,13 +141,34 @@ namespace D3D12ExecuteIndirect
             {
                 allocator.Dispose();
             }
+            foreach (var allocator in ComputeCommandAllocators)
+            {
+                allocator.Dispose();
+            }
+            foreach (var buffer in ProcessedCommandBuffers)
+            {
+                buffer.Dispose();
+            }
             CommandQueue.Dispose();
+            ComputeCommandQueue.Dispose();
             RootSignature.Dispose();
+            ComputeRootSignature.Dispose();
+            CommandSignature.Dispose();
             RenderTargetViewHeap.Dispose();
+            DepthStencilViewHeap.Dispose();
+            CbvSrvUavHeap.Dispose();
             PipelineState.Dispose();
+            ComputePipelineState.Dispose();
             CommandList.Dispose();
+            ComputeCommandList.Dispose();
             VertexBuffer.Dispose();
+            DepthStencil.Dispose();
+            ConstantBuffer.Dispose();
+            CommandBuffer.Dispose();
+            CommandBufferUpload.Dispose();
+            ProcessedCommandBufferCounterReset.Dispose();
             Fence.Dispose();
+            ComputeFence.Dispose();
             SwapChain.Dispose();
             Device.Dispose();
         }
@@ -204,7 +225,7 @@ namespace D3D12ExecuteIndirect
                 var swapChainDesc = new SwapChainDescription()
                 {
                     BufferCount = FrameCount,
-                    ModeDescription = new ModeDescription(Width, Height, new Rational(60, 1), Format.B8G8R8A8_UNorm),
+                    ModeDescription = new ModeDescription(Width, Height, new Rational(60, 1), Format.R8G8B8A8_UNorm),
                     Usage = Usage.RenderTargetOutput,
                     SwapEffect = SwapEffect.FlipDiscard,
                     OutputHandle = form.Handle,
