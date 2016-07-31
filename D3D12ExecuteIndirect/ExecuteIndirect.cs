@@ -199,11 +199,13 @@ namespace D3D12ExecuteIndirect
             ScissorRect = new Rectangle(0, 0, Width, Height);
 
             float center = Width / 2.0f;
-            CullingScissorRect = new Rectangle(
-                (int)(center - (center * CullingCutoff)), 
-                0, 
-                (int)(center + (center * CullingCutoff)),
-                Height);
+            CullingScissorRect = new Rectangle()
+            {
+                Top = 0,
+                Left = (int)(center - (center * CullingCutoff)),
+                Right = (int)(center + (center * CullingCutoff)),
+                Bottom = Height,
+            };
 
 #if DEBUG
             {
