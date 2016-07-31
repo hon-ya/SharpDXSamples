@@ -175,8 +175,22 @@ namespace D3D12ExecuteIndirect
 
         internal void Initialize(RenderForm form)
         {
+            SetupKeyHandler(form);
             LoadPipeline(form);
             LoadAssets();
+        }
+
+        private void SetupKeyHandler(RenderForm form)
+        {
+            form.KeyDown += OnKeyDown;
+        }
+
+        private void OnKeyDown(object sender, System.Windows.Forms.KeyEventArgs e)
+        {
+            if(e.KeyCode == System.Windows.Forms.Keys.Space)
+            {
+                EnableCulling = !EnableCulling;
+            }
         }
 
         private void LoadPipeline(RenderForm form)
