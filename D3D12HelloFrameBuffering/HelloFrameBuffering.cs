@@ -91,7 +91,7 @@ namespace D3D12HelloFrameBuffering
                 var swapChainDesc = new SwapChainDescription()
                 {
                     BufferCount = FrameCount,
-                    ModeDescription = new ModeDescription(width, height, new Rational(60, 1), Format.B8G8R8A8_UNorm),
+                    ModeDescription = new ModeDescription(width, height, new Rational(60, 1), Format.R8G8B8A8_UNorm),
                     Usage = Usage.RenderTargetOutput,
                     SwapEffect = SwapEffect.FlipDiscard,
                     OutputHandle = form.Handle,

@@ -57,9 +57,11 @@ namespace D3D12HelloTexture
             CommandQueue.Dispose();
             RootSignature.Dispose();
             RenderTargetViewHeap.Dispose();
+            ShaderResourceViewHeap.Dispose();
             PipelineState.Dispose();
             CommandList.Dispose();
             VertexBuffer.Dispose();
+            Texture.Dispose();
             Fence.Dispose();
             SwapChain.Dispose();
             Device.Dispose();
@@ -95,7 +97,7 @@ namespace D3D12HelloTexture
                 var swapChainDesc = new SwapChainDescription()
                 {
                     BufferCount = FrameCount,
-                    ModeDescription = new ModeDescription(width, height, new Rational(60, 1), Format.B8G8R8A8_UNorm),
+                    ModeDescription = new ModeDescription(width, height, new Rational(60, 1), Format.R8G8B8A8_UNorm),
                     Usage = Usage.RenderTargetOutput,
                     SwapEffect = SwapEffect.FlipDiscard,
                     OutputHandle = form.Handle,
@@ -333,6 +335,9 @@ namespace D3D12HelloTexture
 
             // コマンド完了を待ちます。
             WaitForPreviousFrame();
+
+            // アップロード用のリソースを開放します。
+            textureUploadHeap.Dispose();
         }
 
         private long GetRequiredIntermediateSize(Resource destiationResource, int firstSubresource, int numSubresources)

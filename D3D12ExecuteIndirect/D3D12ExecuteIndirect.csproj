@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{7C667AF2-D4FD-4F89-B11C-5BF16A031BC8}</ProjectGuid>
+    <ProjectGuid>{DC586F97-F2E6-46C5-8929-3CBEF66A1E70}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>D3D12HelloConstBuffers</RootNamespace>
-    <AssemblyName>D3D12HelloConstBuffers</AssemblyName>
+    <RootNamespace>D3D12ExecuteIndirect</RootNamespace>
+    <AssemblyName>D3D12ExecuteIndirect</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -71,7 +71,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="HelloConstBuffers.cs" />
+    <Compile Include="D3DXUtilities.cs" />
+    <Compile Include="ExecuteIndirect.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">
@@ -98,6 +99,9 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Compute.hlsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Shaders.hlsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
