@@ -13,8 +13,11 @@ namespace D3D12HelloFrameBuffering
         {
             var form = new RenderForm("D3D12 Hello Frame Buffering")
             {
-                Width = 1280,
-                Height = 720,
+                ClientSize = new System.Drawing.Size
+                {
+                    Width = 1280,
+                    Height = 720,
+                },
             };
             form.Show();
 
