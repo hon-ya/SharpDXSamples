@@ -13,8 +13,11 @@ namespace D3D12ExecuteIndirect
         {
             var form = new RenderForm("D3D12 Execute Indirect")
             {
-                Width = 1280,
-                Height = 720,
+                ClientSize = new System.Drawing.Size
+                {
+                    Width = 1280,
+                    Height = 720,
+                },
             };
             form.Show();
 

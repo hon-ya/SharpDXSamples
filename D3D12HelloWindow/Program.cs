@@ -13,8 +13,11 @@ namespace D3D12HelloWindow
         {
             var form = new RenderForm("D3D12 Hello Window")
             {
-                Width = 1280,
-                Height = 720,
+                ClientSize = new System.Drawing.Size
+                {
+                    Width = 1280,
+                    Height = 720,
+                },
             };
             form.Show();
 

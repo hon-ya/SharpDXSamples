@@ -13,8 +13,11 @@ namespace D3D12HelloConstBuffers
         {
             var form = new RenderForm("D3D12 Hello Constant Buffers")
             {
-                Width = 1280,
-                Height = 720,
+                ClientSize = new System.Drawing.Size
+                {
+                    Width = 1280,
+                    Height = 720,
+                },
             };
             form.Show();
 
