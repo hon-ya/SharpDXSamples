@@ -12,17 +12,14 @@ struct PixelShaderInput
 
 cbuffer ConstantBuffer : register(b0)
 {
-	struct
-	{
-		float4 offset;
-	} constant;
+	float4 offset;
 };
 
 PixelShaderInput VSMain(VertexShaderInput input)
 {
 	PixelShaderInput output;
 
-	output.position = input.position + constant.offset;
+	output.position = input.position + offset;
 	output.color = input.color;
 
 	return output;
