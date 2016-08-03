@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace D3D12PrecompiledShader.Properties
+namespace D3D12HelloPrecompiledShader.Properties
 {
 
 
@@ -44,7 +44,7 @@ namespace D3D12PrecompiledShader.Properties
             {
                 if ((resourceMan == null))
                 {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("D3D12PrecompiledShader.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("D3D12HelloPrecompiledShader.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;

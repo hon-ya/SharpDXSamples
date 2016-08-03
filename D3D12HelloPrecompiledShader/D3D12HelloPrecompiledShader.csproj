@@ -7,8 +7,8 @@
     <ProjectGuid>{2E22613B-6A25-4A19-865D-0681FED32463}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>D3D12PrecompiledShader</RootNamespace>
-    <AssemblyName>D3D12PrecompiledShader</AssemblyName>
+    <RootNamespace>D3D12HelloPrecompiledShader</RootNamespace>
+    <AssemblyName>D3D12HelloPrecompiledShader</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -70,7 +70,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="PrecompiledShader.cs" />
+    <Compile Include="HelloPrecompiledShader.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">

@@ -1,7 +1,7 @@
 ﻿using System;
 using SharpDX.Windows;
 
-namespace D3D12PrecompiledShader
+namespace D3D12HelloPrecompiledShader
 {
     static class Program
     {
@@ -11,7 +11,7 @@ namespace D3D12PrecompiledShader
         [STAThread]
         static void Main()
         {
-            var form = new RenderForm("D3D12 Precompiled Shader")
+            var form = new RenderForm("D3D12 Hello Precompiled Shader")
             {
                 ClientSize = new System.Drawing.Size
                 {
@@ -21,7 +21,7 @@ namespace D3D12PrecompiledShader
             };
             form.Show();
 
-            using (var app = new PrecompiledShader())
+            using (var app = new HelloPrecompiledShader())
             {
                 app.Initialize(form);
 
