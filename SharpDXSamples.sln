@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloCompute", "D3D12H
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloPrecompiledShader", "D3D12HelloPrecompiledShader\D3D12HelloPrecompiledShader.csproj", "{2E22613B-6A25-4A19-865D-0681FED32463}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloCube", "D3D12HelloCube\D3D12HelloCube.csproj", "{A7130953-A840-4571-ACCC-49F177B111E6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -63,6 +65,10 @@ Global
 		{2E22613B-6A25-4A19-865D-0681FED32463}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2E22613B-6A25-4A19-865D-0681FED32463}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2E22613B-6A25-4A19-865D-0681FED32463}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A7130953-A840-4571-ACCC-49F177B111E6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A7130953-A840-4571-ACCC-49F177B111E6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7130953-A840-4571-ACCC-49F177B111E6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A7130953-A840-4571-ACCC-49F177B111E6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
