@@ -19,7 +19,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12ExecuteIndirect", "D3D
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloCompute", "D3D12HelloCompute\D3D12HelloCompute.csproj", "{FFEDB061-67B4-4F61-B2AB-438CB82AA970}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12PrecompiledShader", "D3D12PrecompiledShader\D3D12PrecompiledShader.csproj", "{2E22613B-6A25-4A19-865D-0681FED32463}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloPrecompiledShader", "D3D12HelloPrecompiledShader\D3D12HelloPrecompiledShader.csproj", "{2E22613B-6A25-4A19-865D-0681FED32463}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

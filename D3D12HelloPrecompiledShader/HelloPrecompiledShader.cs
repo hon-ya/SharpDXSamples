@@ -2,13 +2,13 @@
 using System.Threading;
 using SharpDX.DXGI;
 
-namespace D3D12PrecompiledShader
+namespace D3D12HelloPrecompiledShader
 {
     using SharpDX;
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
 
-    internal class PrecompiledShader : IDisposable
+    internal class HelloPrecompiledShader : IDisposable
     {
         private struct Vertex
         {

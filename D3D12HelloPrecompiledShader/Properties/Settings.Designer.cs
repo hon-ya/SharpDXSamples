@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace D3D12PrecompiledShader.Properties
+namespace D3D12HelloPrecompiledShader.Properties
 {
 
 
