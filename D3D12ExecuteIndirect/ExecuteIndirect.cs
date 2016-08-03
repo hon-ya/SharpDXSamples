@@ -357,8 +357,8 @@ namespace D3D12ExecuteIndirect
                 var computeShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Compute.hlsl", "CSMain", "cs_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
 #else
                 var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0"));
-                var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "vs_5_0"));
-                var computeShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Compute.hlsl", "CSMain", "ps_5_0"));
+                var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0"));
+                var computeShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Compute.hlsl", "CSMain", "cs_5_0"));
 #endif
 
                 var inputElementDescs = new[]

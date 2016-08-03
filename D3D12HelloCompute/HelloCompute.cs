@@ -201,7 +201,7 @@ namespace D3D12HelloCompute
 #if DEBUG
                 var computeShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Compute.hlsl", "CSMain", "cs_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
 #else
-                var computeShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Compute.hlsl", "CSMain", "ps_5_0"));
+                var computeShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Compute.hlsl", "CSMain", "cs_5_0"));
 #endif
 
                 // コンピュート用のパイプラインステートオブジェクトの作成
