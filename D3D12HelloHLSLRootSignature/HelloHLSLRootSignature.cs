@@ -2,13 +2,13 @@
 using System.Threading;
 using SharpDX.DXGI;
 
-namespace D3D12HelloPrecompiledShader
+namespace D3D12HelloHLSLRootSignature
 {
     using SharpDX;
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
 
-    internal class HelloPrecompiledShader : IDisposable
+    internal class HelloHLSLRootSignature : IDisposable
     {
         private struct Vertex
         {
@@ -127,13 +127,16 @@ namespace D3D12HelloPrecompiledShader
 
         private void LoadAssets()
         {
-            // 空のルートシグネチャを作成します。
-            var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout);
-            RootSignature = Device.CreateRootSignature(rootSignatureDesc.Serialize());
+            // Shaders.hlsl をオフラインでコンパイルして生成したルートシグネチャファイルからルートシグネチャを生成します。
+            RootSignature = Device.CreateRootSignature(System.IO.File.ReadAllBytes("Shaders.rs.cso"));
 
-            // Shaders.hlsl をオフラインでコンパイルして生成したシェーダファイルからシェーダオブジェクトを生成します。
-            var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.FromFile("Shaders.vs.cso"));
-            var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.FromFile("Shaders.ps.cso"));
+#if DEBUG
+            var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
+            var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
+#else
+            var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0"));
+            var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0"));
+#endif
 
             var inputElementDescs = new []
             {
