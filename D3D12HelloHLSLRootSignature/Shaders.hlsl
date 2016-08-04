@@ -1,4 +1,6 @@
-﻿struct VertexShaderInput
+#define RS1   "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)"
+
+struct VertexShaderInput
 {
 	float4 position : POSITION;
 	float4 color : COLOR0;
