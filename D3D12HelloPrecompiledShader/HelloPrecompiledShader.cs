@@ -131,18 +131,16 @@ namespace D3D12HelloPrecompiledShader
             var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout);
             RootSignature = Device.CreateRootSignature(rootSignatureDesc.Serialize());
 
-            // シェーダをロードします。デバッグビルドのときは、デバッグフラグを立てます。
+            // Shaders.hlsl をオフラインでコンパイルして生成したシェーダファイルからシェーダオブジェクトを生成します。
             var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.FromFile("Shaders.vs.cso"));
             var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.FromFile("Shaders.ps.cso"));
 
-            // 頂点レイアウトを定義します。
             var inputElementDescs = new []
             {
                 new InputElement("POSITION", 0, Format.R32G32B32_Float, 0, 0),
                 new InputElement("COLOR", 0, Format.R32G32B32A32_Float, 12, 0),
             };
 
-            // グラフィックスパイプラインステートオブジェクトを作成します。
             var psoDesc = new GraphicsPipelineStateDescription()
             {
                 InputLayout = new InputLayoutDescription(inputElementDescs),
@@ -171,7 +169,6 @@ namespace D3D12HelloPrecompiledShader
             CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocator, PipelineState);
             CommandList.Close();
 
-            // 頂点データを定義します。
             float aspectRatio = Viewport.Width / Viewport.Height;
             var triangleVertices = new[]
             {
@@ -181,11 +178,6 @@ namespace D3D12HelloPrecompiledShader
             };
             var vertexBufferSize = Utilities.SizeOf(triangleVertices);
 
-            // 頂点バッファを作成します。
-            //
-            // 注意：頂点バッファの様はスタティックなデータを配置するためにアップロードヒープを使うのは適しません。
-            // 正しくは、アップロードヒープにおいた頂点データを HeapType.Default のバッファにコピーするなどしてください。
-            // ここでは、簡略化のためにアップロードヒープをそのまま使います。
             VertexBuffer = Device.CreateCommittedResource(
                 new HeapProperties(HeapType.Upload), 
                 HeapFlags.None, 
@@ -193,14 +185,12 @@ namespace D3D12HelloPrecompiledShader
                 ResourceStates.GenericRead
                 );
 
-            // 頂点データを頂点バッファに書き込みます。
             var pVertexDataBegin = VertexBuffer.Map(0);
             {
                 Utilities.Write(pVertexDataBegin, triangleVertices, 0, triangleVertices.Length);
             }
             VertexBuffer.Unmap(0);
 
-            // 頂点バッファビューを作成します。
             VertexBufferView = new VertexBufferView()
             {
                 BufferLocation = VertexBuffer.GPUVirtualAddress,
@@ -235,7 +225,6 @@ namespace D3D12HelloPrecompiledShader
 
             CommandList.Reset(CommandAllocator, PipelineState);
 
-            // 必要な各種ステートを設定します。
             CommandList.SetGraphicsRootSignature(RootSignature);
             CommandList.SetViewport(Viewport);
             CommandList.SetScissorRectangles(ScissorRect);
@@ -245,10 +234,8 @@ namespace D3D12HelloPrecompiledShader
             var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             rtvDescHandle += FrameIndex * RtvDescriptorSize;
 
-            // レンダーターゲットを設定します。
             CommandList.SetRenderTargets(rtvDescHandle, null);
 
-            // コマンドを積み込みます。
             CommandList.ClearRenderTargetView(rtvDescHandle, new Color4(0.0f, 0.2f, 0.4f, 1.0f), 0, null);
 
             CommandList.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
