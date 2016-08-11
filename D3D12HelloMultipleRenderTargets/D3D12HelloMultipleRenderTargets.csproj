@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{A7130953-A840-4571-ACCC-49F177B111E6}</ProjectGuid>
+    <ProjectGuid>{560771AB-C2EE-4009-B7A8-FD996B82A9D4}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>D3D12HelloCube</RootNamespace>
-    <AssemblyName>D3D12HelloCube</AssemblyName>
+    <RootNamespace>D3D12HelloMultipleRenderTargets</RootNamespace>
+    <AssemblyName>D3D12HelloMultipleRenderTargets</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -71,7 +71,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="HelloCube.cs" />
+    <Compile Include="D3DXUtilities.cs" />
+    <Compile Include="HelloMultipleRenderTargets.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">
@@ -99,6 +100,9 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Shaders.hlsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ShadersMRT.hlsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
