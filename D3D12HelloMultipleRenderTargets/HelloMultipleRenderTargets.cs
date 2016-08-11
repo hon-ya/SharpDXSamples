@@ -464,12 +464,14 @@ namespace D3D12HelloMultipleRenderTargets
 
             // MRT 描画
             {
+                // 適切なパイプラインステートを設定
                 CommandList.PipelineState = PipelineStateMRT;
 
                 CommandList.SetGraphicsRootSignature(RootSignatureMRT);
                 CommandList.SetViewport(Viewport);
                 CommandList.SetScissorRectangles(ScissorRect);
 
+                // カラーターゲットとするために状態を遷移
                 for(var i = 0; i < MRTCount; i++)
                 {
                     CommandList.ResourceBarrierTransition(TextureMRTs[i], ResourceStates.PixelShaderResource, ResourceStates.RenderTarget);
@@ -490,6 +492,7 @@ namespace D3D12HelloMultipleRenderTargets
                 CommandList.SetVertexBuffer(0, VertexBufferViewTriangle);
                 CommandList.DrawInstanced(3, 1, 0, 0);
 
+                // 後続の描画にてテクスチャをシェーダリソースとして使うために状態を遷移
                 for (var i = 0; i < MRTCount; i++)
                 {
                     CommandList.ResourceBarrierTransition(TextureMRTs[i], ResourceStates.RenderTarget, ResourceStates.PixelShaderResource);
@@ -498,6 +501,7 @@ namespace D3D12HelloMultipleRenderTargets
 
             // MRT で描画したテクスチャを画面 4 分割して表示
             {
+                // 適切なパイプラインステートを設定
                 CommandList.PipelineState = PipelineState;
 
                 CommandList.SetGraphicsRootSignature(RootSignature);
@@ -522,7 +526,9 @@ namespace D3D12HelloMultipleRenderTargets
 
                 for (var i = 0; i < MRTCount; i++)
                 {
+                    // MRT の各ターゲットをバインド
                     CommandList.SetGraphicsRootDescriptorTable(0, srvHandle);
+                    // 描画範囲を 4 分割中の 1 部分に制限
                     CommandList.SetViewport(Viewports[i]);
 
                     CommandList.DrawInstanced(4, 1, 0, 0);
