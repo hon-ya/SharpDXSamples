@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloHLSLRootSignature
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloShaderReflection", "D3D12HelloShaderReflection\D3D12HelloShaderReflection.csproj", "{53862C21-747A-497F-A4BF-D1CA4CE908D1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloMultipleRenderTargets", "D3D12HelloMultipleRenderTargets\D3D12HelloMultipleRenderTargets.csproj", "{560771AB-C2EE-4009-B7A8-FD996B82A9D4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -81,6 +83,10 @@ Global
 		{53862C21-747A-497F-A4BF-D1CA4CE908D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{53862C21-747A-497F-A4BF-D1CA4CE908D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{53862C21-747A-497F-A4BF-D1CA4CE908D1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{560771AB-C2EE-4009-B7A8-FD996B82A9D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{560771AB-C2EE-4009-B7A8-FD996B82A9D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{560771AB-C2EE-4009-B7A8-FD996B82A9D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{560771AB-C2EE-4009-B7A8-FD996B82A9D4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
