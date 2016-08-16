@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12HelloMultipleRenderTar
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12DynamicIndexing", "D3D12DynamicIndexing\D3D12DynamicIndexing.csproj", "{4285688B-BE97-41E7-877C-2C6A0CFC9EF6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12PredicationQueries", "D3D12PredicationQueries\D3D12PredicationQueries.csproj", "{297D80F7-D8C7-4A6B-9B51-D6A27DADF466}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -93,6 +95,10 @@ Global
 		{4285688B-BE97-41E7-877C-2C6A0CFC9EF6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4285688B-BE97-41E7-877C-2C6A0CFC9EF6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4285688B-BE97-41E7-877C-2C6A0CFC9EF6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{297D80F7-D8C7-4A6B-9B51-D6A27DADF466}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{297D80F7-D8C7-4A6B-9B51-D6A27DADF466}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{297D80F7-D8C7-4A6B-9B51-D6A27DADF466}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{297D80F7-D8C7-4A6B-9B51-D6A27DADF466}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
