@@ -117,16 +117,13 @@ namespace D3D12PredicationQueries
             RenderTargetViewHeap = Device.CreateDescriptorHeap(rtvHeapDesc);
             RtvDescriptorSize = Device.GetDescriptorHandleIncrementSize(DescriptorHeapType.RenderTargetView);
 
-            // 各フレームごとに必要となるリソースを作成します。
             var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             for (var i = 0; i < FrameCount; i++)
             {
-                // レンダーターゲットビューを作成します。
                 RenderTargets[i] = SwapChain.GetBackBuffer<Resource>(i);
                 Device.CreateRenderTargetView(RenderTargets[i], null, rtvDescHandle);
                 rtvDescHandle += RtvDescriptorSize;
 
-                // コマンドバッファアロケータを作成します。
                 CommandAllocators[i] = Device.CreateCommandAllocator(CommandListType.Direct);
             }
         }
@@ -178,7 +175,6 @@ namespace D3D12PredicationQueries
             CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocators[FrameIndex], PipelineState);
             CommandList.Close();
 
-            // 頂点データを定義します。
             float aspectRatio = Viewport.Width / Viewport.Height;
             var triangleVertices = new[]
             {
@@ -231,7 +227,6 @@ namespace D3D12PredicationQueries
 
         private void PopulateCommandList()
         {
-            // フレームごとに、利用するコマンドアロケータを切り替えます。
             CommandAllocators[FrameIndex].Reset();
             CommandList.Reset(CommandAllocators[FrameIndex], PipelineState);
 
@@ -257,12 +252,8 @@ namespace D3D12PredicationQueries
             CommandList.Close();
         }
 
-        /// <summary>
-        /// 現在のフレームの処理の完了を待ちます。
-        /// </summary>
         private void WaitForGpu()
         {
-            // フェンスをシグナルし、即、待ちに入ります。
             CommandQueue.Signal(Fence, FenceValues[FrameIndex]);
 
             Fence.SetEventOnCompletion(FenceValues[FrameIndex], FenceEvent.SafeWaitHandle.DangerousGetHandle());
@@ -271,26 +262,19 @@ namespace D3D12PredicationQueries
             FenceValues[FrameIndex]++;
         }
 
-        /// <summary>
-        /// 次のフレームへ処理を移行します。
-        /// </summary>
         private void MoveToNextFrame()
         {
-            // フェンスをシグナルするコマンドを積み込みます。
             var currentFenceValue = FenceValues[FrameIndex];
             CommandQueue.Signal(Fence, currentFenceValue);
 
-            // フレームインデックスを更新します。
             FrameIndex = SwapChain.CurrentBackBufferIndex;
 
-            // 次のフレームで使うリソースの準備がまだ整っていない場合は、これを待ちます。
             if (Fence.CompletedValue < FenceValues[FrameIndex])
             {
                 Fence.SetEventOnCompletion(FenceValues[FrameIndex], FenceEvent.SafeWaitHandle.DangerousGetHandle());
                 FenceEvent.WaitOne();
             }
 
-            // 次に使うフェンスの値を更新します。
             FenceValues[FrameIndex] = currentFenceValue + 1;
         }
     }
