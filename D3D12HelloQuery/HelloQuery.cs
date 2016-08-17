@@ -7,6 +7,7 @@ namespace D3D12HelloQuery
     using SharpDX;
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
+    using System.Text;
 
     internal class HelloQuery : IDisposable
     {
@@ -36,6 +37,9 @@ namespace D3D12HelloQuery
         private PipelineState PipelineState;
         private Resource VertexBuffer;
         private VertexBufferView VertexBufferView;
+        private QueryHeap PipelineStatisticsQueryHeap;
+        private QueryHeap TimestampQueryHeap;
+        private Resource QueryResult;
 
         public void Dispose()
         {
@@ -53,6 +57,9 @@ namespace D3D12HelloQuery
             PipelineState.Dispose();
             CommandList.Dispose();
             VertexBuffer.Dispose();
+            PipelineStatisticsQueryHeap.Dispose();
+            TimestampQueryHeap.Dispose();
+            QueryResult.Dispose();
             Fence.Dispose();
             SwapChain.Dispose();
             Device.Dispose();
@@ -120,6 +127,25 @@ namespace D3D12HelloQuery
                 RenderTargets[i] = SwapChain.GetBackBuffer<Resource>(i);
                 Device.CreateRenderTargetView(RenderTargets[i], null, rtvDescHandle);
                 rtvDescHandle += RtvDescriptorSize;
+            }
+
+            // クエリヒープの作成
+            {
+                // パイプラインスタティスティクス用クエリヒープの作成
+                var pipelineStatisticsQueryHeapDesc = new QueryHeapDescription()
+                {
+                    Count = 1,
+                    Type = QueryHeapType.PipelineStatistics,
+                };
+                PipelineStatisticsQueryHeap = Device.CreateQueryHeap(pipelineStatisticsQueryHeapDesc);
+
+                // タイムスタンプ用クエリヒープの作成
+                var timestampQueryHeapDesc = new QueryHeapDescription()
+                {
+                    Count = 2,
+                    Type = QueryHeapType.Timestamp,
+                };
+                TimestampQueryHeap = Device.CreateQueryHeap(timestampQueryHeapDesc);
             }
 
             CommandAllocator = Device.CreateCommandAllocator(CommandListType.Direct);
@@ -201,6 +227,15 @@ namespace D3D12HelloQuery
                 SizeInBytes = vertexBufferSize,
             };
 
+            // クエリ結果を収めるためのリソースを作成
+            // サイズは、パイプラインスタティスティックス + タイムスタンプ 2 回分が収まるように
+            QueryResult = Device.CreateCommittedResource(
+                new HeapProperties(HeapType.Readback),
+                HeapFlags.None,
+                ResourceDescription.Buffer(Utilities.SizeOf<QueryDataPipelineStatistics>() + Utilities.SizeOf<UInt64>() * 2),
+                ResourceStates.CopyDestination
+                );
+
             Fence = Device.CreateFence(0, FenceFlags.None);
             FenceValue = 1;
 
@@ -209,6 +244,46 @@ namespace D3D12HelloQuery
 
         internal void Update()
         {
+            var readRange = new Range()
+            {
+                Begin = 0,
+                End = Utilities.SizeOf<QueryDataPipelineStatistics>(),
+            };
+
+            // クエリ結果を表示します。
+            var currentPtr = QueryResult.Map(0, readRange);
+            {
+                var pipelineStatistics = new QueryDataPipelineStatistics();
+                currentPtr = Utilities.ReadAndPosition(currentPtr, ref pipelineStatistics);
+
+                var timestamps = new UInt64[2];
+                currentPtr = Utilities.Read(currentPtr, timestamps, 0, 2);
+
+                var stringBuilder = new StringBuilder();
+                stringBuilder.AppendFormat("=== GPU QUERY RESULT ===\n");
+                stringBuilder.AppendFormat($"\n");
+                stringBuilder.AppendFormat("GPU TIMESTAMP:\n");
+                stringBuilder.AppendFormat($"  Start time  : {timestamps[0]}\n");
+                stringBuilder.AppendFormat($"  End time    : {timestamps[1]}\n");
+                stringBuilder.AppendFormat($"  Elaped time : {timestamps[1] - timestamps[0]}\n");
+                stringBuilder.AppendFormat($"\n");
+                stringBuilder.AppendFormat("GPU PIPELINE STATISTICS:\n");
+                stringBuilder.AppendFormat($"  IAPrimitiveCount : {pipelineStatistics.IAPrimitiveCount}\n");
+                stringBuilder.AppendFormat($"  IAVerticeCount   : {pipelineStatistics.IAVerticeCount}\n");
+                stringBuilder.AppendFormat($"  VSInvocationCount: {pipelineStatistics.VSInvocationCount}\n");
+                stringBuilder.AppendFormat($"  GSInvocationCount: {pipelineStatistics.GSInvocationCount}\n");
+                stringBuilder.AppendFormat($"  GSPrimitiveCount : {pipelineStatistics.GSPrimitiveCount}\n");
+                stringBuilder.AppendFormat($"  CInvocationCount : {pipelineStatistics.CInvocationCount}\n");
+                stringBuilder.AppendFormat($"  CPrimitiveCount  : {pipelineStatistics.CPrimitiveCount}\n");
+                stringBuilder.AppendFormat($"  PSInvocationCount: {pipelineStatistics.PSInvocationCount}\n");
+                stringBuilder.AppendFormat($"  HSInvocationCount: {pipelineStatistics.HSInvocationCount}\n");
+                stringBuilder.AppendFormat($"  DSInvocationCount: {pipelineStatistics.DSInvocationCount}\n");
+                stringBuilder.AppendFormat($"  CSInvocationCount: {pipelineStatistics.CSInvocationCount}\n");
+                stringBuilder.AppendFormat($"\n");
+
+                Console.Write(stringBuilder.ToString());
+            }
+            QueryResult.Unmap(0);
         }
 
         internal void Render()
@@ -243,7 +318,22 @@ namespace D3D12HelloQuery
 
             CommandList.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
             CommandList.SetVertexBuffer(0, VertexBufferView);
-            CommandList.DrawInstanced(3, 1, 0, 0);
+
+            // DrawInstanced の開始と終了までのパイプラインスタティスティックスを取ります。
+            CommandList.BeginQuery(PipelineStatisticsQueryHeap, QueryType.PipelineStatistics, 0);
+            {
+                // DrawInstanced の開始前のタイムスタンプを取ります。
+                // タイムスタンプには BeginQuery がなく、タイムスタンプの欲しい箇所で EndQuery だけを呼び出します。
+                CommandList.EndQuery(TimestampQueryHeap, QueryType.Timestamp, 0);
+                CommandList.DrawInstanced(3, 1, 0, 0);
+                // DrawInstanced の終了後のタイムスタンプを取ります。
+                CommandList.EndQuery(TimestampQueryHeap, QueryType.Timestamp, 1);
+            }
+            CommandList.EndQuery(PipelineStatisticsQueryHeap, QueryType.PipelineStatistics, 0);
+
+            // クエリヒープからリソースへ結果をコピーします。
+            CommandList.ResolveQueryData(PipelineStatisticsQueryHeap, QueryType.PipelineStatistics, 0, 1, QueryResult, 0);
+            CommandList.ResolveQueryData(TimestampQueryHeap, QueryType.Timestamp, 0, 2, QueryResult, Utilities.SizeOf<QueryDataPipelineStatistics>());
 
             CommandList.ResourceBarrierTransition(RenderTargets[FrameIndex], ResourceStates.RenderTarget, ResourceStates.Present);
 
