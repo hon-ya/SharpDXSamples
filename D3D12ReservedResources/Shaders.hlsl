@@ -1,26 +1,39 @@
-﻿struct VertexShaderInput
-{
-	float4 position : POSITION;
-	float4 color : COLOR0;
-};
+﻿//*********************************************************
+//
+// Copyright (c) Microsoft. All rights reserved.
+// This code is licensed under the MIT License (MIT).
+// THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF
+// ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING ANY
+// IMPLIED WARRANTIES OF FITNESS FOR A PARTICULAR
+// PURPOSE, MERCHANTABILITY, OR NON-INFRINGEMENT.
+//
+//*********************************************************
 
-struct PixelShaderInput
+struct PSInput
 {
 	float4 position : SV_POSITION;
-	float4 color : COLOR0;
+	float2 uv : TEXCOORD;
 };
 
-PixelShaderInput VSMain(VertexShaderInput input)
+cbuffer RootConstants : register(b0)
 {
-	PixelShaderInput output;
-
-	output.position = input.position;
-	output.color = input.color;
-
-	return output;
+	uint activeMip;
 }
 
-float4 PSMain(PixelShaderInput input) : SV_TARGET
+Texture2D g_texture : register(t0);
+SamplerState g_sampler : register(s0);
+
+PSInput VSMain(float4 position : POSITION, float4 uv : TEXCOORD)
 {
-	return input.color;
+	PSInput result;
+
+	result.position = position;
+	result.uv = uv;
+
+	return result;
+}
+
+float4 PSMain(PSInput input) : SV_TARGET
+{
+	return g_texture.SampleLevel(g_sampler, input.uv, activeMip);
 }
