@@ -9,7 +9,7 @@ namespace D3D12HelloCompute
     using SharpDX.Direct3D12;
     using System.Diagnostics;
 
-    internal class HelloCompute : IDisposable
+    internal class D3D12HelloCompute : IDisposable
     {
         private struct ComputeInputStruct
         {

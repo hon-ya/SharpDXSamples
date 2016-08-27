@@ -21,7 +21,7 @@ namespace D3D12HelloMultipleRenderTargets
             };
             form.Show();
 
-            using (var app = new HelloMultipleRenderTargets())
+            using (var app = new D3D12HelloMultipleRenderTargets())
             {
                 app.Initialize(form);
 

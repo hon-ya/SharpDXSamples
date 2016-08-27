@@ -21,7 +21,7 @@ namespace D3D12ExecuteIndirect
             };
             form.Show();
 
-            using (var app = new ExecuteIndirect())
+            using (var app = new D3D12ExecuteIndirect())
             {
                 app.Initialize(form);
 

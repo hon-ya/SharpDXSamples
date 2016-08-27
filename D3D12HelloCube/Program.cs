@@ -21,7 +21,7 @@ namespace D3D12HelloCube
             };
             form.Show();
 
-            using (var app = new HelloCube())
+            using (var app = new D3D12HelloCube())
             {
                 app.Initialize(form);
 

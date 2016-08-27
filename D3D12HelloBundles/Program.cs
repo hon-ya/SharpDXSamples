@@ -21,7 +21,7 @@ namespace D3D12HelloBundles
             };
             form.Show();
 
-            using (var app = new HelloBundles())
+            using (var app = new D3D12HelloBundles())
             {
                 app.Initialize(form);
 

@@ -21,7 +21,7 @@ namespace D3D12HelloShaderReflection
             };
             form.Show();
 
-            using (var app = new HelloShaderReflection())
+            using (var app = new D3D12HelloShaderReflection())
             {
                 app.Initialize(form);
 

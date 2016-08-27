@@ -2,13 +2,13 @@
 using System.Threading;
 using SharpDX.DXGI;
 
-namespace D3D12HelloHLSLRootSignature
+namespace D3D12HelloBundles
 {
     using SharpDX;
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
 
-    internal class HelloHLSLRootSignature : IDisposable
+    internal class D3D12HelloBundles : IDisposable
     {
         private struct Vertex
         {
@@ -36,6 +36,8 @@ namespace D3D12HelloHLSLRootSignature
         private PipelineState PipelineState;
         private Resource VertexBuffer;
         private VertexBufferView VertexBufferView;
+        private CommandAllocator BundleAllocator;
+        private GraphicsCommandList Bundle;
 
         public void Dispose()
         {
@@ -47,11 +49,13 @@ namespace D3D12HelloHLSLRootSignature
             }
 
             CommandAllocator.Dispose();
+            BundleAllocator.Dispose();
             CommandQueue.Dispose();
             RootSignature.Dispose();
             RenderTargetViewHeap.Dispose();
             PipelineState.Dispose();
             CommandList.Dispose();
+            Bundle.Dispose();
             VertexBuffer.Dispose();
             Fence.Dispose();
             SwapChain.Dispose();
@@ -122,13 +126,16 @@ namespace D3D12HelloHLSLRootSignature
                 rtvDescHandle += RtvDescriptorSize;
             }
 
+            // Direct 用のコマンドアロケータを作成します。
             CommandAllocator = Device.CreateCommandAllocator(CommandListType.Direct);
+            // Bundle 用のコマンドアロケータを作成します。
+            BundleAllocator = Device.CreateCommandAllocator(CommandListType.Bundle);
         }
 
         private void LoadAssets()
         {
-            // Shaders.hlsl をオフラインでコンパイルして生成したルートシグネチャファイルからルートシグネチャを生成します。
-            RootSignature = Device.CreateRootSignature(System.IO.File.ReadAllBytes("Shaders.rs.cso"));
+            var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout);
+            RootSignature = Device.CreateRootSignature(rootSignatureDesc.Serialize());
 
 #if DEBUG
             var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
@@ -172,6 +179,7 @@ namespace D3D12HelloHLSLRootSignature
             CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocator, PipelineState);
             CommandList.Close();
 
+
             float aspectRatio = Viewport.Width / Viewport.Height;
             var triangleVertices = new[]
             {
@@ -200,6 +208,14 @@ namespace D3D12HelloHLSLRootSignature
                 StrideInBytes = Utilities.SizeOf<Vertex>(),
                 SizeInBytes = vertexBufferSize,
             };
+
+            // バンドルを作成し、コマンドを積み込みます。
+            Bundle = Device.CreateCommandList(CommandListType.Bundle, BundleAllocator, PipelineState);
+            Bundle.SetGraphicsRootSignature(RootSignature);
+            Bundle.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
+            Bundle.SetVertexBuffer(0, VertexBufferView);
+            Bundle.DrawInstanced(3, 1, 0, 0);
+            Bundle.Close();
 
             Fence = Device.CreateFence(0, FenceFlags.None);
             FenceValue = 1;
@@ -241,9 +257,8 @@ namespace D3D12HelloHLSLRootSignature
 
             CommandList.ClearRenderTargetView(rtvDescHandle, new Color4(0.0f, 0.2f, 0.4f, 1.0f), 0, null);
 
-            CommandList.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
-            CommandList.SetVertexBuffer(0, VertexBufferView);
-            CommandList.DrawInstanced(3, 1, 0, 0);
+            // バンドルを積み込みます。
+            CommandList.ExecuteBundle(Bundle);
 
             CommandList.ResourceBarrierTransition(RenderTargets[FrameIndex], ResourceStates.RenderTarget, ResourceStates.Present);
 

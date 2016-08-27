@@ -2,19 +2,18 @@
 using System.Threading;
 using SharpDX.DXGI;
 
-namespace D3D12HelloShaderReflection
+namespace D3D12HelloFrameBuffering
 {
     using SharpDX;
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
-    using System.Text;
-    using System.Runtime.InteropServices;
+    using System.Collections.Generic;
 
-    internal class HelloShaderReflection : IDisposable
+    internal class D3D12HelloFrameBuffering : IDisposable
     {
         private struct Vertex
         {
-            public Vector4 Position;
+            public Vector3 Position;
             public Vector4 Color;
         };
 
@@ -27,9 +26,9 @@ namespace D3D12HelloShaderReflection
         private DescriptorHeap RenderTargetViewHeap;
         private int RtvDescriptorSize;
         private Resource[] RenderTargets = new Resource[FrameCount];
-        private CommandAllocator CommandAllocator;
+        private CommandAllocator[] CommandAllocators = new CommandAllocator[FrameCount];
         private GraphicsCommandList CommandList;
-        private int FenceValue;
+        private int[] FenceValues = new int[FrameCount];
         private Fence Fence;
         private AutoResetEvent FenceEvent;
         private ViewportF Viewport;
@@ -41,14 +40,16 @@ namespace D3D12HelloShaderReflection
 
         public void Dispose()
         {
-            WaitForPreviousFrame();
+            WaitForGpu();
 
             foreach (var target in RenderTargets)
             {
                 target.Dispose();
             }
-
-            CommandAllocator.Dispose();
+            foreach(var allocator in CommandAllocators)
+            {
+                allocator.Dispose();
+            }
             CommandQueue.Dispose();
             RootSignature.Dispose();
             RenderTargetViewHeap.Dispose();
@@ -116,15 +117,18 @@ namespace D3D12HelloShaderReflection
             RenderTargetViewHeap = Device.CreateDescriptorHeap(rtvHeapDesc);
             RtvDescriptorSize = Device.GetDescriptorHandleIncrementSize(DescriptorHeapType.RenderTargetView);
 
+            // 各フレームごとに必要となるリソースを作成します。
             var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             for (var i = 0; i < FrameCount; i++)
             {
+                // レンダーターゲットビューを作成します。
                 RenderTargets[i] = SwapChain.GetBackBuffer<Resource>(i);
                 Device.CreateRenderTargetView(RenderTargets[i], null, rtvDescHandle);
                 rtvDescHandle += RtvDescriptorSize;
-            }
 
-            CommandAllocator = Device.CreateCommandAllocator(CommandListType.Direct);
+                // コマンドバッファアロケータを作成します。
+                CommandAllocators[i] = Device.CreateCommandAllocator(CommandListType.Direct);
+            }
         }
 
         private void LoadAssets()
@@ -140,79 +144,11 @@ namespace D3D12HelloShaderReflection
             var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0"));
 #endif
 
-            var log = new StringBuilder();
-
-            // リフレクションを使い、シェーダの入出力パラメータの情報を出力します。
-            var vsReflection = new SharpDX.D3DCompiler.ShaderReflection(vertexShader.Buffer);
-            log.AppendLine("=== VERTEX SHADER REFLECTION LOG ===");
-            for(var i = 0; i < vsReflection.Description.InputParameters; i++)
-            {
-                var parameter = vsReflection.GetInputParameterDescription(i);
-
-                log.AppendFormat($"INPUT PARAMETER:\n");
-                log.AppendFormat($"  NAME  : \"{parameter.SemanticName}\"\n");
-                log.AppendFormat($"  INDEX : {parameter.SemanticIndex}\n");
-                log.AppendFormat($"  TYPE  : {parameter.ComponentType}\n");
-                log.AppendFormat($"  MASK  : {parameter.UsageMask}\n");
-            }
-            for (var i = 0; i < vsReflection.Description.OutputParameters; i++)
-            {
-                var parameter = vsReflection.GetOutputParameterDescription(i);
-
-                log.AppendFormat($"OUTPUT PARAMETER:\n");
-                log.AppendFormat($"  NAME  : \"{parameter.SemanticName}\"\n");
-                log.AppendFormat($"  INDEX : {parameter.SemanticIndex}\n");
-                log.AppendFormat($"  TYPE  : {parameter.ComponentType}\n");
-                log.AppendFormat($"  MASK  : {parameter.UsageMask}\n");
-            }
-
-            var fsReflection = new SharpDX.D3DCompiler.ShaderReflection(pixelShader.Buffer);
-            log.AppendLine("=== PIXEL SHADER REFLECTION LOG ===");
-            for (var i = 0; i < fsReflection.Description.InputParameters; i++)
-            {
-                var parameter = fsReflection.GetInputParameterDescription(i);
-
-                log.AppendFormat($"INPUT PARAMETER:\n");
-                log.AppendFormat($"  NAME  : \"{parameter.SemanticName}\"\n");
-                log.AppendFormat($"  INDEX : {parameter.SemanticIndex}\n");
-                log.AppendFormat($"  TYPE  : {parameter.ComponentType}\n");
-                log.AppendFormat($"  MASK  : {parameter.UsageMask}\n");
-            }
-            for (var i = 0; i < fsReflection.Description.OutputParameters; i++)
-            {
-                var parameter = fsReflection.GetOutputParameterDescription(i);
-
-                log.AppendFormat($"OUTPUT PARAMETER:\n");
-                log.AppendFormat($"  NAME  : \"{parameter.SemanticName}\"\n");
-                log.AppendFormat($"  INDEX : {parameter.SemanticIndex}\n");
-                log.AppendFormat($"  TYPE  : {parameter.ComponentType}\n");
-                log.AppendFormat($"  MASK  : {parameter.UsageMask}\n");
-            }
-
-            Console.Write(log.ToString());
-
-#if true
-            // シェーダリフレクションの内容から InputElement の配列を構築します。
-            var inputElementDescs = new InputElement[vsReflection.Description.InputParameters];
-            for(var i = 0; i < inputElementDescs.Length; i++)
-            {
-                var parameter = vsReflection.GetInputParameterDescription(i);
-
-                inputElementDescs[i] = new InputElement(
-                    parameter.SemanticName,     // "POSITION" or "COLOR"
-                    parameter.SemanticIndex,    // 0
-                    GetFormat(parameter),       // R32G32B32A32_Float
-                    InputElement.AppendAligned, // アライメントに従い自動的に offset を仕掛ける
-                    0
-                    );
-            }
-#else
             var inputElementDescs = new []
             {
-                new InputElement("POSITION", 0, Format.R32G32B32A32_Float, 0, 0),
-                new InputElement("COLOR", 0, Format.R32G32B32A32_Float, 16, 0),
+                new InputElement("POSITION", 0, Format.R32G32B32_Float, 0, 0),
+                new InputElement("COLOR", 0, Format.R32G32B32A32_Float, 12, 0),
             };
-#endif
 
             var psoDesc = new GraphicsPipelineStateDescription()
             {
@@ -239,16 +175,16 @@ namespace D3D12HelloShaderReflection
 
             PipelineState = Device.CreateGraphicsPipelineState(psoDesc);
 
-            CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocator, PipelineState);
+            CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocators[FrameIndex], PipelineState);
             CommandList.Close();
 
+            // 頂点データを定義します。
             float aspectRatio = Viewport.Width / Viewport.Height;
             var triangleVertices = new[]
             {
-                // アライメントに沿うよう Position を Vector3 から Vector4 に変更しています。
-                new Vertex { Position = new Vector4(0.0f, 0.25f * aspectRatio, 0.0f, 1.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector4(0.25f, -0.25f * aspectRatio, 0.0f, 1.0f), Color = new Vector4(0.0f, 1.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector4(-0.25f, -0.25f * aspectRatio, 0.0f, 1.0f), Color = new Vector4(0.0f, 0.0f, 1.0f, 0.0f) },
+                new Vertex { Position = new Vector3(0.0f, 0.25f * aspectRatio, 0.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
+                new Vertex { Position = new Vector3(0.25f, -0.25f * aspectRatio, 0.0f), Color = new Vector4(0.0f, 1.0f, 0.0f, 0.0f) },
+                new Vertex { Position = new Vector3(-0.25f, -0.25f * aspectRatio, 0.0f), Color = new Vector4(0.0f, 0.0f, 1.0f, 0.0f) },
             };
             var vertexBufferSize = Utilities.SizeOf(triangleVertices);
 
@@ -272,31 +208,10 @@ namespace D3D12HelloShaderReflection
                 SizeInBytes = vertexBufferSize,
             };
 
-            Fence = Device.CreateFence(0, FenceFlags.None);
-            FenceValue = 1;
+            Fence = Device.CreateFence(FenceValues[FrameIndex], FenceFlags.None);
+            FenceValues[FrameIndex]++;
 
             FenceEvent = new AutoResetEvent(false);
-        }
-
-        /// <summary>
-        /// マスクとコンポーネントの型からフォーマットを決定します。
-        /// </summary>
-        /// <param name="parameter"></param>
-        /// <returns></returns>
-        private Format GetFormat(SharpDX.D3DCompiler.ShaderParameterDescription parameter)
-        {
-            var mask = SharpDX.D3DCompiler.RegisterComponentMaskFlags.All;
-
-            if ((parameter.UsageMask & mask) == mask)
-            {
-                switch(parameter.ComponentType)
-                {
-                    case SharpDX.D3DCompiler.RegisterComponentType.Float32:
-                        return Format.R32G32B32A32_Float;
-                }
-            }
-
-            return Format.Unknown;
         }
 
         internal void Update()
@@ -311,14 +226,14 @@ namespace D3D12HelloShaderReflection
 
             SwapChain.Present(1, PresentFlags.None);
 
-            WaitForPreviousFrame();
+            MoveToNextFrame();
         }
 
         private void PopulateCommandList()
         {
-            CommandAllocator.Reset();
-
-            CommandList.Reset(CommandAllocator, PipelineState);
+            // フレームごとに、利用するコマンドアロケータを切り替えます。
+            CommandAllocators[FrameIndex].Reset();
+            CommandList.Reset(CommandAllocators[FrameIndex], PipelineState);
 
             CommandList.SetGraphicsRootSignature(RootSignature);
             CommandList.SetViewport(Viewport);
@@ -342,20 +257,41 @@ namespace D3D12HelloShaderReflection
             CommandList.Close();
         }
 
-        private void WaitForPreviousFrame()
+        /// <summary>
+        /// 現在のフレームの処理の完了を待ちます。
+        /// </summary>
+        private void WaitForGpu()
         {
-            var fence = FenceValue;
+            // フェンスをシグナルし、即、待ちに入ります。
+            CommandQueue.Signal(Fence, FenceValues[FrameIndex]);
 
-            CommandQueue.Signal(Fence, fence);
-            FenceValue++;
+            Fence.SetEventOnCompletion(FenceValues[FrameIndex], FenceEvent.SafeWaitHandle.DangerousGetHandle());
+            FenceEvent.WaitOne();
 
-            if (Fence.CompletedValue < fence)
+            FenceValues[FrameIndex]++;
+        }
+
+        /// <summary>
+        /// 次のフレームへ処理を移行します。
+        /// </summary>
+        private void MoveToNextFrame()
+        {
+            // フェンスをシグナルするコマンドを積み込みます。
+            var currentFenceValue = FenceValues[FrameIndex];
+            CommandQueue.Signal(Fence, currentFenceValue);
+
+            // フレームインデックスを更新します。
+            FrameIndex = SwapChain.CurrentBackBufferIndex;
+
+            // 次のフレームで使うリソースの準備がまだ整っていない場合は、これを待ちます。
+            if (Fence.CompletedValue < FenceValues[FrameIndex])
             {
-                Fence.SetEventOnCompletion(fence, FenceEvent.SafeWaitHandle.DangerousGetHandle());
+                Fence.SetEventOnCompletion(FenceValues[FrameIndex], FenceEvent.SafeWaitHandle.DangerousGetHandle());
                 FenceEvent.WaitOne();
             }
 
-            FrameIndex = SwapChain.CurrentBackBufferIndex;
+            // 次に使うフェンスの値を更新します。
+            FenceValues[FrameIndex] = currentFenceValue + 1;
         }
     }
 }

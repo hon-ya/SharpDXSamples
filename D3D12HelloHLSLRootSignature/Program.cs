@@ -21,7 +21,7 @@ namespace D3D12HelloHLSLRootSignature
             };
             form.Show();
 
-            using (var app = new HelloHLSLRootSignature())
+            using (var app = new D3D12HelloHLSLRootSignature())
             {
                 app.Initialize(form);
 

@@ -17,7 +17,7 @@ namespace D3D12ExecuteIndirect
         }
     }
 
-    internal class ExecuteIndirect : IDisposable
+    internal class D3D12ExecuteIndirect : IDisposable
     {
         // 頂点データ
         private struct Vertex

@@ -9,7 +9,7 @@ namespace D3D12HelloMultipleRenderTargets
     using SharpDX.Direct3D12;
     using System.Runtime.InteropServices;
 
-    internal class HelloMultipleRenderTargets : IDisposable
+    internal class D3D12HelloMultipleRenderTargets : IDisposable
     {
         private struct Vertex
         {

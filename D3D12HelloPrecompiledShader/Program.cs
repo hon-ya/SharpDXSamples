@@ -21,7 +21,7 @@ namespace D3D12HelloPrecompiledShader
             };
             form.Show();
 
-            using (var app = new HelloPrecompiledShader())
+            using (var app = new D3D12HelloPrecompiledShader())
             {
                 app.Initialize(form);
 

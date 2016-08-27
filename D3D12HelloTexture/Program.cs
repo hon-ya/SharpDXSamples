@@ -21,7 +21,7 @@ namespace D3D12HelloTexture
             };
             form.Show();
 
-            using (var app = new HelloTexture())
+            using (var app = new D3D12HelloTexture())
             {
                 app.Initialize(form);
 

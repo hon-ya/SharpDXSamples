@@ -21,7 +21,7 @@ namespace D3D12PredicationQueries
             };
             form.Show();
 
-            using (var app = new PredicationQueries())
+            using (var app = new D3D12PredicationQueries())
             {
                 app.Initialize(form);
 

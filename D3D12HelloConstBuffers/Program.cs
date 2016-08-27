@@ -21,7 +21,7 @@ namespace D3D12HelloConstBuffers
             };
             form.Show();
 
-            using (var app = new HelloConstBuffers())
+            using (var app = new D3D12HelloConstBuffers())
             {
                 app.Initialize(form);
 

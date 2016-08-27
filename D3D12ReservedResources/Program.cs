@@ -21,7 +21,7 @@ namespace D3D12ReservedResources
             };
             form.Show();
 
-            using (var app = new ReservedResources())
+            using (var app = new D3D12ReservedResources())
             {
                 app.Initialize(form);
 
