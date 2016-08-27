@@ -12,7 +12,7 @@ namespace D3D12DynamicIndexing
     using System.Runtime.InteropServices;
     using System.Diagnostics;
 
-    internal class DynamicIndexing : IDisposable
+    internal class D3D12DynamicIndexing : IDisposable
     {
         private const int FrameCount = 2;
         private const int CityRowCount = 15;

@@ -2,13 +2,13 @@
 using System.Threading;
 using SharpDX.DXGI;
 
-namespace D3D12HelloCube
+namespace D3D12HelloTriangle
 {
     using SharpDX;
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
 
-    internal class HelloCube : IDisposable
+    internal class D3D12HelloTriangle : IDisposable
     {
         private struct Vertex
         {
@@ -16,16 +16,7 @@ namespace D3D12HelloCube
             public Vector4 Color;
         };
 
-        private struct ConstantBufferDataStruct
-        {
-            public Matrix Model;
-            public Matrix View;
-            public Matrix Projection;
-        }
-
         private const int FrameCount = 2;
-
-        private int FrameNumber = 0;
 
         private Device Device;
         private CommandQueue CommandQueue;
@@ -45,12 +36,6 @@ namespace D3D12HelloCube
         private PipelineState PipelineState;
         private Resource VertexBuffer;
         private VertexBufferView VertexBufferView;
-        private Resource IndexBuffer;
-        private IndexBufferView IndexBufferView;
-        private Resource ConstantBuffer;
-        private DescriptorHeap ConstantBufferViewHeap;
-        private ConstantBufferDataStruct ConstantBufferData;
-        private IntPtr ConstantBufferPtr;
 
         public void Dispose()
         {
@@ -65,12 +50,9 @@ namespace D3D12HelloCube
             CommandQueue.Dispose();
             RootSignature.Dispose();
             RenderTargetViewHeap.Dispose();
-            ConstantBufferViewHeap.Dispose();
             PipelineState.Dispose();
             CommandList.Dispose();
             VertexBuffer.Dispose();
-            IndexBuffer.Dispose();
-            ConstantBuffer.Dispose();
             Fence.Dispose();
             SwapChain.Dispose();
             Device.Dispose();
@@ -132,15 +114,6 @@ namespace D3D12HelloCube
             RenderTargetViewHeap = Device.CreateDescriptorHeap(rtvHeapDesc);
             RtvDescriptorSize = Device.GetDescriptorHandleIncrementSize(DescriptorHeapType.RenderTargetView);
 
-            // コンスタントバッファビューのデスクリプタヒープを作成します。
-            var cbvHeapDesc = new DescriptorHeapDescription()
-            {
-                DescriptorCount = 1,
-                Type = DescriptorHeapType.ConstantBufferViewShaderResourceViewUnorderedAccessView,
-                Flags = DescriptorHeapFlags.ShaderVisible,
-            };
-            ConstantBufferViewHeap = Device.CreateDescriptorHeap(cbvHeapDesc);
-
             var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             for (var i = 0; i < FrameCount; i++)
             {
@@ -154,22 +127,8 @@ namespace D3D12HelloCube
 
         private void LoadAssets()
         {
-            // コンスタントバッファを扱うルートシグネチャを生成します。
-            var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout,
-                // Root Parameters
-                new[]
-                {
-                    // ルートパラメータ 0:
-                    // コンスタントバッファレジスタ 0 のコンスタントバッファ（頂点シェーダからのみ参照）
-                    new RootParameter(ShaderVisibility.Vertex,
-                        new DescriptorRange()
-                        {
-                            RangeType = DescriptorRangeType.ConstantBufferView,
-                            BaseShaderRegister = 0,
-                            OffsetInDescriptorsFromTableStart = int.MinValue,
-                            DescriptorCount = 1,
-                        })
-                });
+            // 空のルートシグネチャを作成します。
+            var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout);
             RootSignature = Device.CreateRootSignature(rootSignatureDesc.Serialize());
 
             // シェーダをロードします。デバッグビルドのときは、デバッグフラグを立てます。
@@ -218,59 +177,20 @@ namespace D3D12HelloCube
             CommandList.Close();
 
             // 頂点データを定義します。
-            var cubeVertices = new[]
+            float aspectRatio = Viewport.Width / Viewport.Height;
+            var triangleVertices = new[]
             {
-                // front
-                new Vertex { Position = new Vector3(-1.0f, -1.0f,  1.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3(-1.0f,  1.0f,  1.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3( 1.0f,  1.0f,  1.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3( 1.0f, -1.0f,  1.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
-
-                // back
-                new Vertex { Position = new Vector3(-1.0f, -1.0f, -1.0f), Color = new Vector4(0.0f, 1.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3( 1.0f, -1.0f, -1.0f), Color = new Vector4(0.0f, 1.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3( 1.0f,  1.0f, -1.0f), Color = new Vector4(0.0f, 1.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3(-1.0f,  1.0f, -1.0f), Color = new Vector4(0.0f, 1.0f, 0.0f, 0.0f) },
-
-                // top
-                new Vertex { Position = new Vector3(-1.0f,  1.0f, -1.0f), Color = new Vector4(0.0f, 0.0f, 1.0f, 0.0f) },
-                new Vertex { Position = new Vector3( 1.0f,  1.0f, -1.0f), Color = new Vector4(0.0f, 0.0f, 1.0f, 0.0f) },
-                new Vertex { Position = new Vector3( 1.0f,  1.0f,  1.0f), Color = new Vector4(0.0f, 0.0f, 1.0f, 0.0f) },
-                new Vertex { Position = new Vector3(-1.0f,  1.0f,  1.0f), Color = new Vector4(0.0f, 0.0f, 1.0f, 0.0f) },
-
-                // bottom
-                new Vertex { Position = new Vector3(-1.0f, -1.0f, -1.0f), Color = new Vector4(0.0f, 0.0f, 0.0f, 1.0f) },
-                new Vertex { Position = new Vector3(-1.0f, -1.0f,  1.0f), Color = new Vector4(0.0f, 0.0f, 0.0f, 1.0f) },
-                new Vertex { Position = new Vector3( 1.0f, -1.0f,  1.0f), Color = new Vector4(0.0f, 0.0f, 0.0f, 1.0f) },
-                new Vertex { Position = new Vector3( 1.0f, -1.0f, -1.0f), Color = new Vector4(0.0f, 0.0f, 0.0f, 1.0f) },
-
-                // right
-                new Vertex { Position = new Vector3( 1.0f, -1.0f, -1.0f), Color = new Vector4(1.0f, 1.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3( 1.0f, -1.0f,  1.0f), Color = new Vector4(1.0f, 1.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3( 1.0f,  1.0f,  1.0f), Color = new Vector4(1.0f, 1.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3( 1.0f,  1.0f, -1.0f), Color = new Vector4(1.0f, 1.0f, 0.0f, 0.0f) },
-
-                // left
-                new Vertex { Position = new Vector3(-1.0f, -1.0f, -1.0f), Color = new Vector4(1.0f, 0.0f, 1.0f, 0.0f) },
-                new Vertex { Position = new Vector3(-1.0f,  1.0f, -1.0f), Color = new Vector4(1.0f, 0.0f, 1.0f, 0.0f) },
-                new Vertex { Position = new Vector3(-1.0f,  1.0f,  1.0f), Color = new Vector4(1.0f, 0.0f, 1.0f, 0.0f) },
-                new Vertex { Position = new Vector3(-1.0f, -1.0f,  1.0f), Color = new Vector4(1.0f, 0.0f, 1.0f, 0.0f) },
+                new Vertex { Position = new Vector3(0.0f, 0.25f * aspectRatio, 0.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
+                new Vertex { Position = new Vector3(0.25f, -0.25f * aspectRatio, 0.0f), Color = new Vector4(0.0f, 1.0f, 0.0f, 0.0f) },
+                new Vertex { Position = new Vector3(-0.25f, -0.25f * aspectRatio, 0.0f), Color = new Vector4(0.0f, 0.0f, 1.0f, 0.0f) },
             };
-            var vertexBufferSize = Utilities.SizeOf(cubeVertices);
-
-            // インデックスデータを定義します。
-            var cubeIndices = new UInt16[]
-            {
-                0, 1, 2, 0, 2, 3,		// front
-			    4, 5, 6, 4, 6, 7,		// back
-			    8, 9, 10, 8, 10, 11,	// top
-			    12, 13, 14, 12, 14, 15,	// bottom
-			    16, 17, 18, 16, 18, 19,	// right
-			    20, 21, 22, 20, 22, 23  // left
-            };
-            var indexBufferSize = Utilities.SizeOf(cubeIndices);
+            var vertexBufferSize = Utilities.SizeOf(triangleVertices);
 
             // 頂点バッファを作成します。
+            //
+            // 注意：頂点バッファの様はスタティックなデータを配置するためにアップロードヒープを使うのは適しません。
+            // 正しくは、アップロードヒープにおいた頂点データを HeapType.Default のバッファにコピーするなどしてください。
+            // ここでは、簡略化のためにアップロードヒープをそのまま使います。
             VertexBuffer = Device.CreateCommittedResource(
                 new HeapProperties(HeapType.Upload), 
                 HeapFlags.None, 
@@ -281,7 +201,7 @@ namespace D3D12HelloCube
             // 頂点データを頂点バッファに書き込みます。
             var pVertexDataBegin = VertexBuffer.Map(0);
             {
-                Utilities.Write(pVertexDataBegin, cubeVertices, 0, cubeVertices.Length);
+                Utilities.Write(pVertexDataBegin, triangleVertices, 0, triangleVertices.Length);
             }
             VertexBuffer.Unmap(0);
 
@@ -293,50 +213,6 @@ namespace D3D12HelloCube
                 SizeInBytes = vertexBufferSize,
             };
 
-            // インデックスバッファを作成します。
-            IndexBuffer = Device.CreateCommittedResource(
-                new HeapProperties(HeapType.Upload),
-                HeapFlags.None,
-                ResourceDescription.Buffer(indexBufferSize),
-                ResourceStates.GenericRead
-                );
-
-            // インデックスデータをインデックスバッファに書き込みます。
-            var pIndexDataBegin = IndexBuffer.Map(0);
-            {
-                Utilities.Write(pIndexDataBegin, cubeIndices, 0, cubeIndices.Length);
-            }
-            IndexBuffer.Unmap(0);
-
-            // インデックスバッファビューを作成します。
-            IndexBufferView = new IndexBufferView()
-            {
-                BufferLocation = IndexBuffer.GPUVirtualAddress,
-                Format = Format.R16_UInt,
-                SizeInBytes = indexBufferSize,
-            };
-
-            // コンスタントバッファを作成します。
-            ConstantBuffer = Device.CreateCommittedResource(
-                new HeapProperties(HeapType.Upload),
-                HeapFlags.None,
-                ResourceDescription.Buffer(1024 * 64),
-                ResourceStates.GenericRead
-                );
-
-            // コンスタントバッファビューを作成します。
-            var cbvDesc = new ConstantBufferViewDescription()
-            {
-                BufferLocation = ConstantBuffer.GPUVirtualAddress,
-                SizeInBytes = (Utilities.SizeOf<ConstantBufferDataStruct>() + 255) & ~255,
-            };
-            Device.CreateConstantBufferView(cbvDesc, ConstantBufferViewHeap.CPUDescriptorHandleForHeapStart);
-
-            // コンスタントバッファを初期化します。
-            // コンスタントバッファは、アプリ終了までマップしたままにします。
-            ConstantBufferPtr = ConstantBuffer.Map(0);
-            Utilities.Write(ConstantBufferPtr, ref ConstantBufferData);
-
             Fence = Device.CreateFence(0, FenceFlags.None);
             FenceValue = 1;
 
@@ -345,29 +221,6 @@ namespace D3D12HelloCube
 
         internal void Update()
         {
-            var model = Matrix.RotationAxis(
-                    new Vector3(0.0f, 1.0f, 0.0f),
-                    MathUtil.DegreesToRadians(FrameNumber % 360)
-                    );
-
-            var view = Matrix.LookAtRH(
-                    new Vector3(3.0f, 2.0f, 3.0f),
-                    new Vector3(0.0f, 0.0f, 0.0f),
-                    new Vector3(0.0f, 1.0f, 0.0f)
-                    );
-
-            var projection = Matrix.PerspectiveFovRH(
-                    MathUtil.DegreesToRadians(60.0f),
-                    Viewport.Width / Viewport.Height,
-                    0.0001f,
-                    100.0f
-                    );
-
-            ConstantBufferData.Model = Matrix.Transpose(model);
-            ConstantBufferData.View = Matrix.Transpose(view);
-            ConstantBufferData.Projection = Matrix.Transpose(projection);
-
-            Utilities.Write(ConstantBufferPtr, ref ConstantBufferData);
         }
 
         internal void Render()
@@ -389,12 +242,6 @@ namespace D3D12HelloCube
 
             // 必要な各種ステートを設定します。
             CommandList.SetGraphicsRootSignature(RootSignature);
-
-            // 使用するデスクリプタヒープを設定します。
-            CommandList.SetDescriptorHeaps(1, new[] { ConstantBufferViewHeap });
-            // デスクリプタテーブルのルートパラメータ 0 番に対応するデスクリプタとして、コンスタントバッファビューを渡します。
-            CommandList.SetGraphicsRootDescriptorTable(0, ConstantBufferViewHeap.GPUDescriptorHandleForHeapStart);
-
             CommandList.SetViewport(Viewport);
             CommandList.SetScissorRectangles(ScissorRect);
 
@@ -411,8 +258,7 @@ namespace D3D12HelloCube
 
             CommandList.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
             CommandList.SetVertexBuffer(0, VertexBufferView);
-            CommandList.SetIndexBuffer(IndexBufferView);
-            CommandList.DrawIndexedInstanced(36, 1, 0, 0, 0);
+            CommandList.DrawInstanced(3, 1, 0, 0);
 
             CommandList.ResourceBarrierTransition(RenderTargets[FrameIndex], ResourceStates.RenderTarget, ResourceStates.Present);
 
@@ -433,8 +279,6 @@ namespace D3D12HelloCube
             }
 
             FrameIndex = SwapChain.CurrentBackBufferIndex;
-
-            FrameNumber++;
         }
     }
 }

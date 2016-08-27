@@ -12,7 +12,7 @@ namespace D3D12ReservedResources
     using System.Runtime.InteropServices;
     using System.Windows.Forms;
 
-    internal class ReservedResources : IDisposable
+    internal class D3D12ReservedResources : IDisposable
     {
         private struct Vertex
         {

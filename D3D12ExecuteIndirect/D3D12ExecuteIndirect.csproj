@@ -72,7 +72,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="D3DXUtilities.cs" />
-    <Compile Include="ExecuteIndirect.cs" />
+    <Compile Include="D3D12ExecuteIndirect.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">

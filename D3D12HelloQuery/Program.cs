@@ -21,7 +21,7 @@ namespace D3D12HelloQuery
             };
             form.Show();
 
-            using (var app = new HelloQuery())
+            using (var app = new D3D12HelloQuery())
             {
                 app.Initialize(form);
 

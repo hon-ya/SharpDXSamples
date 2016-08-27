@@ -21,7 +21,7 @@ namespace D3D12SmallResources
             };
             form.Show();
 
-            using (var app = new SmallResources())
+            using (var app = new D3D12SmallResources())
             {
                 app.Initialize(form);
 

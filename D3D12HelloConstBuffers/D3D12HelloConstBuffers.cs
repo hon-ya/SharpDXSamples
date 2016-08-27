@@ -2,20 +2,24 @@
 using System.Threading;
 using SharpDX.DXGI;
 
-namespace D3D12HelloFrameBuffering
+namespace D3D12HelloConstBuffers
 {
     using SharpDX;
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
-    using System.Collections.Generic;
 
-    internal class HelloFrameBuffering : IDisposable
+    internal class D3D12HelloConstBuffers : IDisposable
     {
         private struct Vertex
         {
             public Vector3 Position;
             public Vector4 Color;
-        };
+        }
+
+        private struct ConstantBufferDataStruct
+        {
+            public Vector4 Offset;
+        }
 
         private const int FrameCount = 2;
 
@@ -26,9 +30,9 @@ namespace D3D12HelloFrameBuffering
         private DescriptorHeap RenderTargetViewHeap;
         private int RtvDescriptorSize;
         private Resource[] RenderTargets = new Resource[FrameCount];
-        private CommandAllocator[] CommandAllocators = new CommandAllocator[FrameCount];
+        private CommandAllocator CommandAllocator;
         private GraphicsCommandList CommandList;
-        private int[] FenceValues = new int[FrameCount];
+        private int FenceValue;
         private Fence Fence;
         private AutoResetEvent FenceEvent;
         private ViewportF Viewport;
@@ -37,25 +41,29 @@ namespace D3D12HelloFrameBuffering
         private PipelineState PipelineState;
         private Resource VertexBuffer;
         private VertexBufferView VertexBufferView;
+        private Resource ConstantBuffer;
+        private DescriptorHeap ConstantBufferViewHeap;
+        private ConstantBufferDataStruct ConstantBufferData;
+        private IntPtr ConstantBufferPtr;
 
         public void Dispose()
         {
-            WaitForGpu();
+            WaitForPreviousFrame();
 
             foreach (var target in RenderTargets)
             {
                 target.Dispose();
             }
-            foreach(var allocator in CommandAllocators)
-            {
-                allocator.Dispose();
-            }
+
+            CommandAllocator.Dispose();
             CommandQueue.Dispose();
             RootSignature.Dispose();
             RenderTargetViewHeap.Dispose();
+            ConstantBufferViewHeap.Dispose();
             PipelineState.Dispose();
             CommandList.Dispose();
             VertexBuffer.Dispose();
+            ConstantBuffer.Dispose();
             Fence.Dispose();
             SwapChain.Dispose();
             Device.Dispose();
@@ -117,23 +125,44 @@ namespace D3D12HelloFrameBuffering
             RenderTargetViewHeap = Device.CreateDescriptorHeap(rtvHeapDesc);
             RtvDescriptorSize = Device.GetDescriptorHandleIncrementSize(DescriptorHeapType.RenderTargetView);
 
-            // 各フレームごとに必要となるリソースを作成します。
+            // コンスタントバッファビューのデスクリプタヒープを作成します。
+            var cbvHeapDesc = new DescriptorHeapDescription()
+            {
+                DescriptorCount = 1,
+                Type = DescriptorHeapType.ConstantBufferViewShaderResourceViewUnorderedAccessView,
+                Flags = DescriptorHeapFlags.ShaderVisible,
+            };
+            ConstantBufferViewHeap = Device.CreateDescriptorHeap(cbvHeapDesc);
+
             var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             for (var i = 0; i < FrameCount; i++)
             {
-                // レンダーターゲットビューを作成します。
                 RenderTargets[i] = SwapChain.GetBackBuffer<Resource>(i);
                 Device.CreateRenderTargetView(RenderTargets[i], null, rtvDescHandle);
                 rtvDescHandle += RtvDescriptorSize;
-
-                // コマンドバッファアロケータを作成します。
-                CommandAllocators[i] = Device.CreateCommandAllocator(CommandListType.Direct);
             }
+
+            CommandAllocator = Device.CreateCommandAllocator(CommandListType.Direct);
         }
 
         private void LoadAssets()
         {
-            var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout);
+            // コンスタントバッファを扱うルートシグネチャを生成します。
+            var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout,
+                // Root Parameters
+                new[]
+                {
+                    // ルートパラメータ 0:
+                    // コンスタントバッファレジスタ 0 のコンスタントバッファ（頂点シェーダからのみ参照）
+                    new RootParameter(ShaderVisibility.Vertex,
+                        new DescriptorRange()
+                        {
+                            RangeType = DescriptorRangeType.ConstantBufferView,
+                            BaseShaderRegister = 0,
+                            OffsetInDescriptorsFromTableStart = int.MinValue,
+                            DescriptorCount = 1,
+                        })
+                });
             RootSignature = Device.CreateRootSignature(rootSignatureDesc.Serialize());
 
 #if DEBUG
@@ -175,10 +204,9 @@ namespace D3D12HelloFrameBuffering
 
             PipelineState = Device.CreateGraphicsPipelineState(psoDesc);
 
-            CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocators[FrameIndex], PipelineState);
+            CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocator, PipelineState);
             CommandList.Close();
 
-            // 頂点データを定義します。
             float aspectRatio = Viewport.Width / Viewport.Height;
             var triangleVertices = new[]
             {
@@ -208,14 +236,45 @@ namespace D3D12HelloFrameBuffering
                 SizeInBytes = vertexBufferSize,
             };
 
-            Fence = Device.CreateFence(FenceValues[FrameIndex], FenceFlags.None);
-            FenceValues[FrameIndex]++;
+            // コンスタントバッファを作成します。
+            ConstantBuffer = Device.CreateCommittedResource(
+                new HeapProperties(HeapType.Upload),
+                HeapFlags.None,
+                ResourceDescription.Buffer(1024 * 64),
+                ResourceStates.GenericRead
+                );
+
+            // コンスタントバッファビューを作成します。
+            var cbvDesc = new ConstantBufferViewDescription()
+            {
+                BufferLocation = ConstantBuffer.GPUVirtualAddress,
+                SizeInBytes = (Utilities.SizeOf<ConstantBufferDataStruct>() + 255) & ~255,
+            };
+            Device.CreateConstantBufferView(cbvDesc, ConstantBufferViewHeap.CPUDescriptorHandleForHeapStart);
+
+            // コンスタントバッファを初期化します。
+            // コンスタントバッファは、アプリ終了までマップしたままにします。
+            ConstantBufferPtr = ConstantBuffer.Map(0);
+            Utilities.Write(ConstantBufferPtr, ref ConstantBufferData);
+
+            Fence = Device.CreateFence(0, FenceFlags.None);
+            FenceValue = 1;
 
             FenceEvent = new AutoResetEvent(false);
         }
 
         internal void Update()
         {
+            const float translationSpeed = 0.005f;
+            const float offsetBounds = 1.25f;
+
+            ConstantBufferData.Offset.X += translationSpeed;
+            if(ConstantBufferData.Offset.X > offsetBounds)
+            {
+                ConstantBufferData.Offset.X = -offsetBounds;
+            }
+
+            Utilities.Write(ConstantBufferPtr, ref ConstantBufferData);
         }
 
         internal void Render()
@@ -226,16 +285,22 @@ namespace D3D12HelloFrameBuffering
 
             SwapChain.Present(1, PresentFlags.None);
 
-            MoveToNextFrame();
+            WaitForPreviousFrame();
         }
 
         private void PopulateCommandList()
         {
-            // フレームごとに、利用するコマンドアロケータを切り替えます。
-            CommandAllocators[FrameIndex].Reset();
-            CommandList.Reset(CommandAllocators[FrameIndex], PipelineState);
+            CommandAllocator.Reset();
+
+            CommandList.Reset(CommandAllocator, PipelineState);
 
             CommandList.SetGraphicsRootSignature(RootSignature);
+
+            // 使用するデスクリプタヒープを設定します。
+            CommandList.SetDescriptorHeaps(1, new[] { ConstantBufferViewHeap });
+            // デスクリプタテーブルのルートパラメータ 0 番に対応するデスクリプタとして、コンスタントバッファビューを渡します。
+            CommandList.SetGraphicsRootDescriptorTable(0, ConstantBufferViewHeap.GPUDescriptorHandleForHeapStart);
+
             CommandList.SetViewport(Viewport);
             CommandList.SetScissorRectangles(ScissorRect);
 
@@ -257,41 +322,20 @@ namespace D3D12HelloFrameBuffering
             CommandList.Close();
         }
 
-        /// <summary>
-        /// 現在のフレームの処理の完了を待ちます。
-        /// </summary>
-        private void WaitForGpu()
+        private void WaitForPreviousFrame()
         {
-            // フェンスをシグナルし、即、待ちに入ります。
-            CommandQueue.Signal(Fence, FenceValues[FrameIndex]);
+            var fence = FenceValue;
 
-            Fence.SetEventOnCompletion(FenceValues[FrameIndex], FenceEvent.SafeWaitHandle.DangerousGetHandle());
-            FenceEvent.WaitOne();
+            CommandQueue.Signal(Fence, fence);
+            FenceValue++;
 
-            FenceValues[FrameIndex]++;
-        }
-
-        /// <summary>
-        /// 次のフレームへ処理を移行します。
-        /// </summary>
-        private void MoveToNextFrame()
-        {
-            // フェンスをシグナルするコマンドを積み込みます。
-            var currentFenceValue = FenceValues[FrameIndex];
-            CommandQueue.Signal(Fence, currentFenceValue);
-
-            // フレームインデックスを更新します。
-            FrameIndex = SwapChain.CurrentBackBufferIndex;
-
-            // 次のフレームで使うリソースの準備がまだ整っていない場合は、これを待ちます。
-            if (Fence.CompletedValue < FenceValues[FrameIndex])
+            if (Fence.CompletedValue < fence)
             {
-                Fence.SetEventOnCompletion(FenceValues[FrameIndex], FenceEvent.SafeWaitHandle.DangerousGetHandle());
+                Fence.SetEventOnCompletion(fence, FenceEvent.SafeWaitHandle.DangerousGetHandle());
                 FenceEvent.WaitOne();
             }
 
-            // 次に使うフェンスの値を更新します。
-            FenceValues[FrameIndex] = currentFenceValue + 1;
+            FrameIndex = SwapChain.CurrentBackBufferIndex;
         }
     }
 }

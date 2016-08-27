@@ -10,7 +10,7 @@ namespace D3D12SmallResources
     using System.Collections.Generic;
     using System.Windows.Forms;
 
-    internal class SmallResources : IDisposable
+    internal class D3D12SmallResources : IDisposable
     {
         private struct Vertex
         {

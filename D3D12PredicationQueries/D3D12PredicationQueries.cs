@@ -10,7 +10,7 @@ namespace D3D12PredicationQueries
     using System.Collections.Generic;
     using System.Runtime.InteropServices;
 
-    internal class PredicationQueries : IDisposable
+    internal class D3D12PredicationQueries : IDisposable
     {
         private struct Vertex
         {

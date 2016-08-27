@@ -21,7 +21,7 @@ namespace D3D12HelloFrameBuffering
             };
             form.Show();
 
-            using (var app = new HelloFrameBuffering())
+            using (var app = new D3D12HelloFrameBuffering())
             {
                 app.Initialize(form);
 

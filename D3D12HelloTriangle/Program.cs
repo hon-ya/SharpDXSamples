@@ -21,7 +21,7 @@ namespace D3D12HelloTriangle
             };
             form.Show();
 
-            using (var app = new HelloTriangle())
+            using (var app = new D3D12HelloTriangle())
             {
                 app.Initialize(form);
 

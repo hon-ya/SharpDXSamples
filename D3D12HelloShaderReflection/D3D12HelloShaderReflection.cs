@@ -2,17 +2,19 @@
 using System.Threading;
 using SharpDX.DXGI;
 
-namespace D3D12HelloTriangle
+namespace D3D12HelloShaderReflection
 {
     using SharpDX;
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
+    using System.Text;
+    using System.Runtime.InteropServices;
 
-    internal class HelloTriangle : IDisposable
+    internal class D3D12HelloShaderReflection : IDisposable
     {
         private struct Vertex
         {
-            public Vector3 Position;
+            public Vector4 Position;
             public Vector4 Color;
         };
 
@@ -127,11 +129,9 @@ namespace D3D12HelloTriangle
 
         private void LoadAssets()
         {
-            // 空のルートシグネチャを作成します。
             var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout);
             RootSignature = Device.CreateRootSignature(rootSignatureDesc.Serialize());
 
-            // シェーダをロードします。デバッグビルドのときは、デバッグフラグを立てます。
 #if DEBUG
             var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
             var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
@@ -140,14 +140,80 @@ namespace D3D12HelloTriangle
             var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0"));
 #endif
 
-            // 頂点レイアウトを定義します。
+            var log = new StringBuilder();
+
+            // リフレクションを使い、シェーダの入出力パラメータの情報を出力します。
+            var vsReflection = new SharpDX.D3DCompiler.ShaderReflection(vertexShader.Buffer);
+            log.AppendLine("=== VERTEX SHADER REFLECTION LOG ===");
+            for(var i = 0; i < vsReflection.Description.InputParameters; i++)
+            {
+                var parameter = vsReflection.GetInputParameterDescription(i);
+
+                log.AppendFormat($"INPUT PARAMETER:\n");
+                log.AppendFormat($"  NAME  : \"{parameter.SemanticName}\"\n");
+                log.AppendFormat($"  INDEX : {parameter.SemanticIndex}\n");
+                log.AppendFormat($"  TYPE  : {parameter.ComponentType}\n");
+                log.AppendFormat($"  MASK  : {parameter.UsageMask}\n");
+            }
+            for (var i = 0; i < vsReflection.Description.OutputParameters; i++)
+            {
+                var parameter = vsReflection.GetOutputParameterDescription(i);
+
+                log.AppendFormat($"OUTPUT PARAMETER:\n");
+                log.AppendFormat($"  NAME  : \"{parameter.SemanticName}\"\n");
+                log.AppendFormat($"  INDEX : {parameter.SemanticIndex}\n");
+                log.AppendFormat($"  TYPE  : {parameter.ComponentType}\n");
+                log.AppendFormat($"  MASK  : {parameter.UsageMask}\n");
+            }
+
+            var fsReflection = new SharpDX.D3DCompiler.ShaderReflection(pixelShader.Buffer);
+            log.AppendLine("=== PIXEL SHADER REFLECTION LOG ===");
+            for (var i = 0; i < fsReflection.Description.InputParameters; i++)
+            {
+                var parameter = fsReflection.GetInputParameterDescription(i);
+
+                log.AppendFormat($"INPUT PARAMETER:\n");
+                log.AppendFormat($"  NAME  : \"{parameter.SemanticName}\"\n");
+                log.AppendFormat($"  INDEX : {parameter.SemanticIndex}\n");
+                log.AppendFormat($"  TYPE  : {parameter.ComponentType}\n");
+                log.AppendFormat($"  MASK  : {parameter.UsageMask}\n");
+            }
+            for (var i = 0; i < fsReflection.Description.OutputParameters; i++)
+            {
+                var parameter = fsReflection.GetOutputParameterDescription(i);
+
+                log.AppendFormat($"OUTPUT PARAMETER:\n");
+                log.AppendFormat($"  NAME  : \"{parameter.SemanticName}\"\n");
+                log.AppendFormat($"  INDEX : {parameter.SemanticIndex}\n");
+                log.AppendFormat($"  TYPE  : {parameter.ComponentType}\n");
+                log.AppendFormat($"  MASK  : {parameter.UsageMask}\n");
+            }
+
+            Console.Write(log.ToString());
+
+#if true
+            // シェーダリフレクションの内容から InputElement の配列を構築します。
+            var inputElementDescs = new InputElement[vsReflection.Description.InputParameters];
+            for(var i = 0; i < inputElementDescs.Length; i++)
+            {
+                var parameter = vsReflection.GetInputParameterDescription(i);
+
+                inputElementDescs[i] = new InputElement(
+                    parameter.SemanticName,     // "POSITION" or "COLOR"
+                    parameter.SemanticIndex,    // 0
+                    GetFormat(parameter),       // R32G32B32A32_Float
+                    InputElement.AppendAligned, // アライメントに従い自動的に offset を仕掛ける
+                    0
+                    );
+            }
+#else
             var inputElementDescs = new []
             {
-                new InputElement("POSITION", 0, Format.R32G32B32_Float, 0, 0),
-                new InputElement("COLOR", 0, Format.R32G32B32A32_Float, 12, 0),
+                new InputElement("POSITION", 0, Format.R32G32B32A32_Float, 0, 0),
+                new InputElement("COLOR", 0, Format.R32G32B32A32_Float, 16, 0),
             };
+#endif
 
-            // グラフィックスパイプラインステートオブジェクトを作成します。
             var psoDesc = new GraphicsPipelineStateDescription()
             {
                 InputLayout = new InputLayoutDescription(inputElementDescs),
@@ -176,21 +242,16 @@ namespace D3D12HelloTriangle
             CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocator, PipelineState);
             CommandList.Close();
 
-            // 頂点データを定義します。
             float aspectRatio = Viewport.Width / Viewport.Height;
             var triangleVertices = new[]
             {
-                new Vertex { Position = new Vector3(0.0f, 0.25f * aspectRatio, 0.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3(0.25f, -0.25f * aspectRatio, 0.0f), Color = new Vector4(0.0f, 1.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3(-0.25f, -0.25f * aspectRatio, 0.0f), Color = new Vector4(0.0f, 0.0f, 1.0f, 0.0f) },
+                // アライメントに沿うよう Position を Vector3 から Vector4 に変更しています。
+                new Vertex { Position = new Vector4(0.0f, 0.25f * aspectRatio, 0.0f, 1.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
+                new Vertex { Position = new Vector4(0.25f, -0.25f * aspectRatio, 0.0f, 1.0f), Color = new Vector4(0.0f, 1.0f, 0.0f, 0.0f) },
+                new Vertex { Position = new Vector4(-0.25f, -0.25f * aspectRatio, 0.0f, 1.0f), Color = new Vector4(0.0f, 0.0f, 1.0f, 0.0f) },
             };
             var vertexBufferSize = Utilities.SizeOf(triangleVertices);
 
-            // 頂点バッファを作成します。
-            //
-            // 注意：頂点バッファの様はスタティックなデータを配置するためにアップロードヒープを使うのは適しません。
-            // 正しくは、アップロードヒープにおいた頂点データを HeapType.Default のバッファにコピーするなどしてください。
-            // ここでは、簡略化のためにアップロードヒープをそのまま使います。
             VertexBuffer = Device.CreateCommittedResource(
                 new HeapProperties(HeapType.Upload), 
                 HeapFlags.None, 
@@ -198,14 +259,12 @@ namespace D3D12HelloTriangle
                 ResourceStates.GenericRead
                 );
 
-            // 頂点データを頂点バッファに書き込みます。
             var pVertexDataBegin = VertexBuffer.Map(0);
             {
                 Utilities.Write(pVertexDataBegin, triangleVertices, 0, triangleVertices.Length);
             }
             VertexBuffer.Unmap(0);
 
-            // 頂点バッファビューを作成します。
             VertexBufferView = new VertexBufferView()
             {
                 BufferLocation = VertexBuffer.GPUVirtualAddress,
@@ -217,6 +276,27 @@ namespace D3D12HelloTriangle
             FenceValue = 1;
 
             FenceEvent = new AutoResetEvent(false);
+        }
+
+        /// <summary>
+        /// マスクとコンポーネントの型からフォーマットを決定します。
+        /// </summary>
+        /// <param name="parameter"></param>
+        /// <returns></returns>
+        private Format GetFormat(SharpDX.D3DCompiler.ShaderParameterDescription parameter)
+        {
+            var mask = SharpDX.D3DCompiler.RegisterComponentMaskFlags.All;
+
+            if ((parameter.UsageMask & mask) == mask)
+            {
+                switch(parameter.ComponentType)
+                {
+                    case SharpDX.D3DCompiler.RegisterComponentType.Float32:
+                        return Format.R32G32B32A32_Float;
+                }
+            }
+
+            return Format.Unknown;
         }
 
         internal void Update()
@@ -240,7 +320,6 @@ namespace D3D12HelloTriangle
 
             CommandList.Reset(CommandAllocator, PipelineState);
 
-            // 必要な各種ステートを設定します。
             CommandList.SetGraphicsRootSignature(RootSignature);
             CommandList.SetViewport(Viewport);
             CommandList.SetScissorRectangles(ScissorRect);
@@ -250,10 +329,8 @@ namespace D3D12HelloTriangle
             var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             rtvDescHandle += FrameIndex * RtvDescriptorSize;
 
-            // レンダーターゲットを設定します。
             CommandList.SetRenderTargets(rtvDescHandle, null);
 
-            // コマンドを積み込みます。
             CommandList.ClearRenderTargetView(rtvDescHandle, new Color4(0.0f, 0.2f, 0.4f, 1.0f), 0, null);
 
             CommandList.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;

@@ -2,26 +2,26 @@
 using System.Threading;
 using SharpDX.DXGI;
 
-namespace D3D12HelloConstBuffers
+namespace D3D12HelloTexture
 {
     using SharpDX;
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
+    using System.Runtime.InteropServices;
 
-    internal class HelloConstBuffers : IDisposable
+    internal class D3D12HelloTexture : IDisposable
     {
         private struct Vertex
         {
             public Vector3 Position;
-            public Vector4 Color;
-        }
-
-        private struct ConstantBufferDataStruct
-        {
-            public Vector4 Offset;
-        }
+            public Vector2 TexCoord;
+        };
 
         private const int FrameCount = 2;
+
+        private const int TextureWidth = 256;
+        private const int TextureHeight = 256;
+        private const int TexturePixelSize = 4;
 
         private Device Device;
         private CommandQueue CommandQueue;
@@ -41,10 +41,8 @@ namespace D3D12HelloConstBuffers
         private PipelineState PipelineState;
         private Resource VertexBuffer;
         private VertexBufferView VertexBufferView;
-        private Resource ConstantBuffer;
-        private DescriptorHeap ConstantBufferViewHeap;
-        private ConstantBufferDataStruct ConstantBufferData;
-        private IntPtr ConstantBufferPtr;
+        private DescriptorHeap ShaderResourceViewHeap;
+        private Resource Texture;
 
         public void Dispose()
         {
@@ -59,11 +57,11 @@ namespace D3D12HelloConstBuffers
             CommandQueue.Dispose();
             RootSignature.Dispose();
             RenderTargetViewHeap.Dispose();
-            ConstantBufferViewHeap.Dispose();
+            ShaderResourceViewHeap.Dispose();
             PipelineState.Dispose();
             CommandList.Dispose();
             VertexBuffer.Dispose();
-            ConstantBuffer.Dispose();
+            Texture.Dispose();
             Fence.Dispose();
             SwapChain.Dispose();
             Device.Dispose();
@@ -125,15 +123,6 @@ namespace D3D12HelloConstBuffers
             RenderTargetViewHeap = Device.CreateDescriptorHeap(rtvHeapDesc);
             RtvDescriptorSize = Device.GetDescriptorHandleIncrementSize(DescriptorHeapType.RenderTargetView);
 
-            // コンスタントバッファビューのデスクリプタヒープを作成します。
-            var cbvHeapDesc = new DescriptorHeapDescription()
-            {
-                DescriptorCount = 1,
-                Type = DescriptorHeapType.ConstantBufferViewShaderResourceViewUnorderedAccessView,
-                Flags = DescriptorHeapFlags.ShaderVisible,
-            };
-            ConstantBufferViewHeap = Device.CreateDescriptorHeap(cbvHeapDesc);
-
             var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
             for (var i = 0; i < FrameCount; i++)
             {
@@ -142,26 +131,47 @@ namespace D3D12HelloConstBuffers
                 rtvDescHandle += RtvDescriptorSize;
             }
 
+            // シェーダリソースビューのためのデスクリプターヒープを作成
+            var srvHeapDesc = new DescriptorHeapDescription()
+            {
+                DescriptorCount = 1,
+                Type = DescriptorHeapType.ConstantBufferViewShaderResourceViewUnorderedAccessView,
+                Flags = DescriptorHeapFlags.ShaderVisible,
+            };
+            ShaderResourceViewHeap = Device.CreateDescriptorHeap(srvHeapDesc);
+
+
             CommandAllocator = Device.CreateCommandAllocator(CommandListType.Direct);
         }
 
         private void LoadAssets()
         {
-            // コンスタントバッファを扱うルートシグネチャを生成します。
+            // テクスチャを扱うルートシグネチャを作成します。
             var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout,
                 // Root Parameters
                 new[]
                 {
                     // ルートパラメータ 0:
-                    // コンスタントバッファレジスタ 0 のコンスタントバッファ（頂点シェーダからのみ参照）
-                    new RootParameter(ShaderVisibility.Vertex,
+                    // テクスチャレジスタ 0 のシェーダリソース（ピクセルシェーダからのみ参照）
+                    new RootParameter(ShaderVisibility.Pixel,
                         new DescriptorRange()
                         {
-                            RangeType = DescriptorRangeType.ConstantBufferView,
+                            RangeType = DescriptorRangeType.ShaderResourceView,
                             BaseShaderRegister = 0,
                             OffsetInDescriptorsFromTableStart = int.MinValue,
                             DescriptorCount = 1,
                         })
+                },
+                // Samplers
+                new[]
+                {
+                    // サンプラーデスク 0:
+                    // サンプラレジスタ 0 の静的サンプラ（ピクセルシェーダからのみ参照）
+                    new StaticSamplerDescription(ShaderVisibility.Pixel, 0, 0)
+                    {
+                        Filter = Filter.MinimumMinMagMipPoint,
+                        AddressUVW = TextureAddressMode.Border,
+                    }
                 });
             RootSignature = Device.CreateRootSignature(rootSignatureDesc.Serialize());
 
@@ -173,10 +183,11 @@ namespace D3D12HelloConstBuffers
             var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0"));
 #endif
 
+            // 頂点レイアウトを定義します。
             var inputElementDescs = new []
             {
                 new InputElement("POSITION", 0, Format.R32G32B32_Float, 0, 0),
-                new InputElement("COLOR", 0, Format.R32G32B32A32_Float, 12, 0),
+                new InputElement("TEXCOORD", 0, Format.R32G32_Float, 12, 0),
             };
 
             var psoDesc = new GraphicsPipelineStateDescription()
@@ -204,15 +215,16 @@ namespace D3D12HelloConstBuffers
 
             PipelineState = Device.CreateGraphicsPipelineState(psoDesc);
 
+            // コマンドリストを作成。この後使うので、すぐには閉じない。
             CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocator, PipelineState);
-            CommandList.Close();
 
+            // 頂点データを定義します。
             float aspectRatio = Viewport.Width / Viewport.Height;
             var triangleVertices = new[]
             {
-                new Vertex { Position = new Vector3(0.0f, 0.25f * aspectRatio, 0.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3(0.25f, -0.25f * aspectRatio, 0.0f), Color = new Vector4(0.0f, 1.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3(-0.25f, -0.25f * aspectRatio, 0.0f), Color = new Vector4(0.0f, 0.0f, 1.0f, 0.0f) },
+                new Vertex { Position = new Vector3(0.0f, 0.25f * aspectRatio, 0.0f), TexCoord = new Vector2(0.5f, 0.0f) },
+                new Vertex { Position = new Vector3(0.25f, -0.25f * aspectRatio, 0.0f), TexCoord = new Vector2(1.0f, 1.0f) },
+                new Vertex { Position = new Vector3(-0.25f, -0.25f * aspectRatio, 0.0f), TexCoord = new Vector2(0.0f, 1.0f) },
             };
             var vertexBufferSize = Utilities.SizeOf(triangleVertices);
 
@@ -236,45 +248,145 @@ namespace D3D12HelloConstBuffers
                 SizeInBytes = vertexBufferSize,
             };
 
-            // コンスタントバッファを作成します。
-            ConstantBuffer = Device.CreateCommittedResource(
-                new HeapProperties(HeapType.Upload),
+            // テクスチャリソースを作成します。
+            var textureDesc = ResourceDescription.Texture2D(Format.R8G8B8A8_UNorm, TextureWidth, TextureHeight);
+            Texture = Device.CreateCommittedResource(
+                new HeapProperties(HeapType.Default),
                 HeapFlags.None,
-                ResourceDescription.Buffer(1024 * 64),
+                textureDesc,
+                ResourceStates.CopyDestination
+                );
+
+            var uploadBufferSize = GetRequiredIntermediateSize(Texture, 0, 1);
+
+            // テクスチャのバイナリデータ
+            var textureData = GenerateTextureData();
+
+            // アップロード用のテクスチャリソースを作成し、テクスチャリソースへコピーします。
+#if true
+            var textureUploadHeap = Device.CreateCommittedResource(
+                new HeapProperties(CpuPageProperty.WriteBack, MemoryPool.L0),
+                HeapFlags.None,
+                textureDesc,
                 ResourceStates.GenericRead
                 );
 
-            // コンスタントバッファビューを作成します。
-            var cbvDesc = new ConstantBufferViewDescription()
-            {
-                BufferLocation = ConstantBuffer.GPUVirtualAddress,
-                SizeInBytes = (Utilities.SizeOf<ConstantBufferDataStruct>() + 255) & ~255,
-            };
-            Device.CreateConstantBufferView(cbvDesc, ConstantBufferViewHeap.CPUDescriptorHandleForHeapStart);
+            var handle = GCHandle.Alloc(textureData, GCHandleType.Pinned);
+            var ptr = Marshal.UnsafeAddrOfPinnedArrayElement(textureData, 0);
+            textureUploadHeap.WriteToSubresource(0, null, ptr, TexturePixelSize * TextureWidth, textureData.Length);
+            handle.Free();
 
-            // コンスタントバッファを初期化します。
-            // コンスタントバッファは、アプリ終了までマップしたままにします。
-            ConstantBufferPtr = ConstantBuffer.Map(0);
-            Utilities.Write(ConstantBufferPtr, ref ConstantBufferData);
+            CommandList.CopyTextureRegion(new TextureCopyLocation(Texture, 0), 0, 0, 0, new TextureCopyLocation(textureUploadHeap, 0), null);
+#else
+            var textureUploadHeap = Device.CreateCommittedResource(
+                new HeapProperties(HeapType.Upload),
+                HeapFlags.None,
+                ResourceDescription.Buffer(uploadBufferSize),
+                ResourceStates.GenericRead
+                );
+
+            var pTextureDataBegin = textureUploadHeap.Map(0);
+            {
+                Utilities.Write(pTextureDataBegin, textureData, 0, textureData.Length);
+            }
+            textureUploadHeap.Unmap(0);
+
+            CommandList.CopyTextureRegion(
+                new TextureCopyLocation(Texture, 0), 
+                0, 0, 0, 
+                new TextureCopyLocation(
+                    textureUploadHeap, 
+                    new PlacedSubResourceFootprint()
+                    {
+                        Footprint =
+                        {
+                            Format = textureDesc.Format,
+                            Width = (int)textureDesc.Width,
+                            Height = textureDesc.Height,
+                            Depth = 1,
+                            RowPitch = TextureWidth * TexturePixelSize,
+                        },
+                        Offset = 0
+                    }),
+                null
+                );
+#endif
+            // コピー先テクスチャをシェーダリソースとして利用するためのリソースバリアを設定します。
+            CommandList.ResourceBarrier(new ResourceTransitionBarrier(Texture, ResourceStates.CopyDestination, ResourceStates.PixelShaderResource));
+
+            // シェーダリソースビューの作成
+            var srvDesc = new ShaderResourceViewDescription
+            {
+                Shader4ComponentMapping = D3DXUtilities.DefaultComponentMapping(),
+                Format = textureDesc.Format,
+                Dimension = ShaderResourceViewDimension.Texture2D,
+                Texture2D = { MipLevels = 1 },
+            };
+            Device.CreateShaderResourceView(Texture, srvDesc, ShaderResourceViewHeap.CPUDescriptorHandleForHeapStart);
+
+            // コマンドを閉じ、実行します。
+            CommandList.Close();
+            CommandQueue.ExecuteCommandList(CommandList);
 
             Fence = Device.CreateFence(0, FenceFlags.None);
             FenceValue = 1;
 
             FenceEvent = new AutoResetEvent(false);
+
+            // コマンド完了を待ちます。
+            WaitForPreviousFrame();
+
+            // アップロード用のリソースを開放します。
+            textureUploadHeap.Dispose();
+        }
+
+        private long GetRequiredIntermediateSize(Resource destiationResource, int firstSubresource, int numSubresources)
+        {
+            var desc = destiationResource.Description;
+
+            long requiredSize;
+            Device.GetCopyableFootprints(ref desc, firstSubresource, numSubresources, 0, null, null, null, out requiredSize);
+
+            return requiredSize;
+        }
+
+        private byte[] GenerateTextureData()
+        {
+            const int rowPitch = TextureWidth * TexturePixelSize;
+            const int cellPitch = rowPitch >> 3;
+            const int cellHeight = TextureWidth >> 3;
+            const int textureSize = rowPitch * TextureHeight;
+
+            var data = new byte[textureSize];
+
+            for (int n = 0; n < textureSize; n += TexturePixelSize)
+            {
+                int x = n % rowPitch;
+                int y = n / rowPitch;
+                int i = x / cellPitch;
+                int j = y / cellHeight;
+
+                if (i % 2 == j % 2)
+                {
+                    data[n] = 0x00;        // R
+                    data[n + 1] = 0x00;    // G
+                    data[n + 2] = 0x00;    // B
+                    data[n + 3] = 0xff;    // A
+                }
+                else
+                {
+                    data[n] = 0xff;        // R
+                    data[n + 1] = 0xff;    // G
+                    data[n + 2] = 0xff;    // B
+                    data[n + 3] = 0xff;    // A
+                }
+            }
+
+            return data;
         }
 
         internal void Update()
         {
-            const float translationSpeed = 0.005f;
-            const float offsetBounds = 1.25f;
-
-            ConstantBufferData.Offset.X += translationSpeed;
-            if(ConstantBufferData.Offset.X > offsetBounds)
-            {
-                ConstantBufferData.Offset.X = -offsetBounds;
-            }
-
-            Utilities.Write(ConstantBufferPtr, ref ConstantBufferData);
         }
 
         internal void Render()
@@ -297,10 +409,10 @@ namespace D3D12HelloConstBuffers
             CommandList.SetGraphicsRootSignature(RootSignature);
 
             // 使用するデスクリプタヒープを設定します。
-            CommandList.SetDescriptorHeaps(1, new[] { ConstantBufferViewHeap });
-            // デスクリプタテーブルのルートパラメータ 0 番に対応するデスクリプタとして、コンスタントバッファビューを渡します。
-            CommandList.SetGraphicsRootDescriptorTable(0, ConstantBufferViewHeap.GPUDescriptorHandleForHeapStart);
+            CommandList.SetDescriptorHeaps(1, new[] { ShaderResourceViewHeap });
 
+            // ルートパラメータ 0 に対応するシェーダリソースビューを設定します。
+            CommandList.SetGraphicsRootDescriptorTable(0, ShaderResourceViewHeap.GPUDescriptorHandleForHeapStart);
             CommandList.SetViewport(Viewport);
             CommandList.SetScissorRectangles(ScissorRect);
 

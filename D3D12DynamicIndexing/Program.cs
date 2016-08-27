@@ -21,7 +21,7 @@ namespace D3D12DynamicIndexing
             };
             form.Show();
 
-            using (var app = new DynamicIndexing())
+            using (var app = new D3D12DynamicIndexing())
             {
                 app.Initialize(form);
 

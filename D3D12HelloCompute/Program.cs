@@ -21,7 +21,7 @@ namespace D3D12HelloCompute
             };
             form.Show();
 
-            using (var app = new HelloCompute())
+            using (var app = new D3D12HelloCompute())
             {
                 app.Initialize(form);
 

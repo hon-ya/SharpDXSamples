@@ -21,7 +21,7 @@ namespace D3D12HelloWindow
             };
             form.Show();
 
-            using (var app = new HelloWindow())
+            using (var app = new D3D12HelloWindow())
             {
                 app.Initialize(form);
 

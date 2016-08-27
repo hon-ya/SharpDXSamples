@@ -9,7 +9,7 @@ namespace D3D12HelloQuery
     using SharpDX.Direct3D12;
     using System.Text;
 
-    internal class HelloQuery : IDisposable
+    internal class D3D12HelloQuery : IDisposable
     {
         private struct Vertex
         {
