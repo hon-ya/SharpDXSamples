@@ -8,6 +8,7 @@ namespace D3D12HelloCompute
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
     using System.Diagnostics;
+    using SharpDXSample;
 
     internal class D3D12HelloCompute : IDisposable
     {
@@ -284,7 +285,7 @@ namespace D3D12HelloCompute
                 {
                     Format = Format.Unknown,
                     Dimension = ShaderResourceViewDimension.Buffer,
-                    Shader4ComponentMapping = D3DXUtilities.DefaultComponentMapping(),
+                    Shader4ComponentMapping = D3D12Utilities.DefaultComponentMapping(),
                     Buffer =
                     {
                         FirstElement = 0,

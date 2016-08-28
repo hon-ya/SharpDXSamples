@@ -8,6 +8,7 @@ namespace D3D12HelloMultipleRenderTargets
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
     using System.Runtime.InteropServices;
+    using SharpDXSample;
 
     internal class D3D12HelloMultipleRenderTargets : IDisposable
     {
@@ -392,7 +393,7 @@ namespace D3D12HelloMultipleRenderTargets
 
                 var srvDesc = new ShaderResourceViewDescription
                 {
-                    Shader4ComponentMapping = D3DXUtilities.DefaultComponentMapping(),
+                    Shader4ComponentMapping = D3D12Utilities.DefaultComponentMapping(),
                     Format = textureDesc.Format,
                     Dimension = ShaderResourceViewDimension.Texture2D,
                     Texture2D = { MipLevels = 1 },

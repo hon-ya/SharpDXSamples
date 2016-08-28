@@ -39,6 +39,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12SmallResources", "D3D1
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12ReservedResources", "D3D12ReservedResources\D3D12ReservedResources.csproj", "{E860DB25-8B3F-423E-BF5E-851ACBEDC2F3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpDXSample", "SharpDXSample\SharpDXSample.csproj", "{01EE566F-D66F-4456-B965-9CAC96A25A75}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -117,6 +119,10 @@ Global
 		{E860DB25-8B3F-423E-BF5E-851ACBEDC2F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E860DB25-8B3F-423E-BF5E-851ACBEDC2F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E860DB25-8B3F-423E-BF5E-851ACBEDC2F3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{01EE566F-D66F-4456-B965-9CAC96A25A75}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{01EE566F-D66F-4456-B965-9CAC96A25A75}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{01EE566F-D66F-4456-B965-9CAC96A25A75}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{01EE566F-D66F-4456-B965-9CAC96A25A75}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

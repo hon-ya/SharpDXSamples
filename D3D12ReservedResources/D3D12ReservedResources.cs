@@ -11,6 +11,7 @@ namespace D3D12ReservedResources
     using System.Diagnostics;
     using System.Runtime.InteropServices;
     using System.Windows.Forms;
+    using SharpDXSample;
 
     internal class D3D12ReservedResources : IDisposable
     {
@@ -327,13 +328,16 @@ namespace D3D12ReservedResources
                     );
                 uploadResources.Add(vertexBufferUpload);
 
-                var pVertexDataBegin = vertexBufferUpload.Map(0);
+                var vertexData = new D3D12Utilities.SubresourceData()
                 {
-                    Utilities.Write(pVertexDataBegin, quadVertices, 0, quadVertices.Length);
-                }
-                vertexBufferUpload.Unmap(0);
+                    Data = Utilities.ToByteArray(quadVertices),
+                    Offset = 0,
+                    RowPitch = vertexBufferSize,
+                    SlicePitch = vertexBufferSize,
+                };
 
-                CommandList.CopyBufferRegion(VertexBuffer, 0, vertexBufferUpload, 0, vertexBufferSize);
+                D3D12Utilities.UpdateSubresources(Device, CommandList, VertexBuffer, vertexBufferUpload, 0, 0, 1, new[] { vertexData });
+
                 CommandList.ResourceBarrierTransition(VertexBuffer, ResourceStates.CopyDestination, ResourceStates.VertexAndConstantBuffer);
 
                 VertexBufferView = new VertexBufferView()
@@ -372,14 +376,14 @@ namespace D3D12ReservedResources
                 // ReservedResource を参照する SRV の作成
                 var srvDesc = new ShaderResourceViewDescription()
                 {
-                    Shader4ComponentMapping = D3DXUtilities.DefaultComponentMapping(),
+                    Shader4ComponentMapping = D3D12Utilities.DefaultComponentMapping(),
                     Format = reservedTextureDesc.Format,
                     Dimension = ShaderResourceViewDimension.Texture2D,
                     Texture2D = { MipLevels = MipLevels },
                 };
                 Device.CreateShaderResourceView(ReservedResource, srvDesc, CbvSrvUavHeap.CPUDescriptorHandleForHeapStart);
 
-                var resourceSize = GetRequiredIntermediateSize(ReservedResource, 0, 1);
+                var resourceSize = D3D12Utilities.GetRequiredIntermediateSize(Device, ReservedResource, 0, 1);
 
                 // テクスチャデータのアップロード用ヒープの作成
                 TextureUploadHeap = Device.CreateCommittedResource(
@@ -489,16 +493,6 @@ namespace D3D12ReservedResources
             }
         }
 
-        private long GetRequiredIntermediateSize(Resource destiationResource, int firstSubresource, int numSubresources)
-        {
-            var desc = destiationResource.Description;
-
-            long requiredSize;
-            Device.GetCopyableFootprints(ref desc, firstSubresource, numSubresources, 0, null, null, null, out requiredSize);
-
-            return requiredSize;
-        }
-
         private void UpdateTileMapping()
         {
             var firstSubresource = MipInfos[ActiveMip].HeapIndex;
@@ -571,46 +565,26 @@ namespace D3D12ReservedResources
 
                 // マップした領域へデータをアップロードします。
                 {
-                    // 一時リソース上にテクスチャデータを構築
-                    var layouts = new PlacedSubResourceFootprint[subresourceCount];
+                    var mipOffset = 0L;
+                    var textureData = new D3D12Utilities.SubresourceData[subresourceCount];
+                    for(var i = 0; i < subresourceCount; i++)
                     {
-                        // テクスチャのレイアウト情報を取得
-                        var desc = ReservedResource.Description;
-                        var numRows = new int[subresourceCount];
-                        var rowSizesInBytes = new long[subresourceCount];
-                        long totalBytes;
-                        Device.GetCopyableFootprints(ref desc, firstSubresource, subresourceCount, 0, layouts, numRows, rowSizesInBytes, out totalBytes);
+                        var mipCount = firstSubresource + i;
+                        var width = TextureWidth >> mipCount;
+                        var height = TextureHeight >> mipCount;
 
-                        var textureUploadHeapPtr = TextureUploadHeap.Map(0);
+                        textureData[i] = new D3D12Utilities.SubresourceData()
                         {
-                            // 各 Mip のデータを構築
-                            var mipOffset = 0;
-                            for (var i = 0; i < subresourceCount; i++)
-                            {
-                                var currentPtr = IntPtr.Add(textureUploadHeapPtr, (int)layouts[i].Offset);
-                                for (var row = 0; row < numRows[i]; row++)
-                                {
-                                    Utilities.Write(currentPtr, texture, mipOffset + row * (int)rowSizesInBytes[i], (int)rowSizesInBytes[i]);
+                            Data = texture,
+                            Offset = mipOffset,
+                            RowPitch = width * TexturePixelSizeInBytes,
+                            SlicePitch = width * height * TexturePixelSizeInBytes,
+                        };
 
-                                    currentPtr = IntPtr.Add(currentPtr, layouts[i].Footprint.RowPitch);
-                                }
-
-                                mipOffset += layouts[i].Footprint.Width * layouts[i].Footprint.Height * TexturePixelSizeInBytes;
-                            }
-                        }
-                        TextureUploadHeap.Unmap(0);
+                        mipOffset += textureData[i].SlicePitch;
                     }
 
-                    for (var i = 0; i < subresourceCount; i++)
-                    {
-                        // 一時リソースから目的の領域へデータをコピー
-                        CommandList.CopyTextureRegion(
-                        new TextureCopyLocation(ReservedResource, firstSubresource + i),
-                        0, 0, 0,
-                        new TextureCopyLocation(TextureUploadHeap, layouts[i]),
-                        null
-                        );
-                    }
+                    D3D12Utilities.UpdateSubresources(Device, CommandList, ReservedResource, TextureUploadHeap, 0, firstSubresource, subresourceCount, textureData);
                 }
             }
 

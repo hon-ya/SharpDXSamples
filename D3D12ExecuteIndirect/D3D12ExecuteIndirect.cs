@@ -8,6 +8,7 @@ namespace D3D12ExecuteIndirect
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
     using System.Runtime.InteropServices;
+    using SharpDXSample;
 
     internal static class EnumUtilities
     {
@@ -509,7 +510,7 @@ namespace D3D12ExecuteIndirect
                 {
                     Format = Format.Unknown,
                     Dimension = ShaderResourceViewDimension.Buffer,
-                    Shader4ComponentMapping = D3DXUtilities.DefaultComponentMapping(),
+                    Shader4ComponentMapping = D3D12Utilities.DefaultComponentMapping(),
                     Buffer =
                     {
                         ElementCount = TriangleCount,
@@ -602,16 +603,16 @@ namespace D3D12ExecuteIndirect
                     }
                 }
 
-                // アップロード用のバッファを初期化します。
-                var currentCommandBufferUploadPtr = CommandBufferUpload.Map(0);
-                for (var i = 0; i < TriangleResourceCount; i++)
+                var commandBufferData = new D3D12Utilities.SubresourceData()
                 {
-                    currentCommandBufferUploadPtr = Utilities.WriteAndPosition(currentCommandBufferUploadPtr, ref commands[i]);
-                }
-                CommandBufferUpload.Unmap(0);
+                    Data = Utilities.ToByteArray(commands),
+                    Offset = 0,
+                    RowPitch = commandBufferSize,
+                    SlicePitch = commandBufferSize,
+                };
 
-                // アップロードバッファの内容をバッファにコピーします。
-                CommandList.CopyBufferRegion(CommandBuffer, 0, CommandBufferUpload, 0, commandBufferSize);
+                // コマンドデータをバッファにコピー
+                D3D12Utilities.UpdateSubresources(Device, CommandList, CommandBuffer, CommandBufferUpload, 0, 0, 1, new[] { commandBufferData });
 
                 // バッファの状態を遷移させます。
                 CommandList.ResourceBarrier(new ResourceTransitionBarrier(CommandBuffer, ResourceStates.GenericRead, ResourceStates.NonPixelShaderResource));
@@ -621,7 +622,7 @@ namespace D3D12ExecuteIndirect
                 {
                     Format = Format.Unknown,
                     Dimension = ShaderResourceViewDimension.Buffer,
-                    Shader4ComponentMapping = D3DXUtilities.DefaultComponentMapping(),
+                    Shader4ComponentMapping = D3D12Utilities.DefaultComponentMapping(),
                     Buffer =
                     {
                         ElementCount = TriangleCount,
