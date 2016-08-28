@@ -7,6 +7,7 @@ namespace D3D12HelloConstBuffers
     using SharpDX;
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
+    using System.Runtime.InteropServices;
 
     internal class D3D12HelloConstBuffers : IDisposable
     {
@@ -16,6 +17,7 @@ namespace D3D12HelloConstBuffers
             public Vector4 Color;
         }
 
+        [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 256)]
         private struct ConstantBufferDataStruct
         {
             public Vector4 Offset;
@@ -240,7 +242,7 @@ namespace D3D12HelloConstBuffers
             ConstantBuffer = Device.CreateCommittedResource(
                 new HeapProperties(HeapType.Upload),
                 HeapFlags.None,
-                ResourceDescription.Buffer(1024 * 64),
+                ResourceDescription.Buffer(Utilities.SizeOf<ConstantBufferDataStruct>()),
                 ResourceStates.GenericRead
                 );
 
@@ -248,7 +250,7 @@ namespace D3D12HelloConstBuffers
             var cbvDesc = new ConstantBufferViewDescription()
             {
                 BufferLocation = ConstantBuffer.GPUVirtualAddress,
-                SizeInBytes = (Utilities.SizeOf<ConstantBufferDataStruct>() + 255) & ~255,
+                SizeInBytes = Utilities.SizeOf<ConstantBufferDataStruct>(),
             };
             Device.CreateConstantBufferView(cbvDesc, ConstantBufferViewHeap.CPUDescriptorHandleForHeapStart);
 
