@@ -16,10 +16,14 @@ namespace D3D12HelloCompute
             public int number;
         };
 
+#pragma warning disable 0649
+
         private struct ComputeOutputStruct
         {
             public int result;
         };
+
+#pragma warning restore 0649
 
         private const int FrameCount = 2;
         private const int ThreadBlockSize = 128;
