@@ -41,6 +41,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12ReservedResources", "D
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpDXSample", "SharpDXSample\SharpDXSample.csproj", "{01EE566F-D66F-4456-B965-9CAC96A25A75}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3D12ShadowMap", "D3D12ShadowMap\D3D12ShadowMap.csproj", "{7EE31C6A-48AE-40BE-B3A2-858A95646089}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -123,6 +125,10 @@ Global
 		{01EE566F-D66F-4456-B965-9CAC96A25A75}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{01EE566F-D66F-4456-B965-9CAC96A25A75}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{01EE566F-D66F-4456-B965-9CAC96A25A75}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7EE31C6A-48AE-40BE-B3A2-858A95646089}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7EE31C6A-48AE-40BE-B3A2-858A95646089}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7EE31C6A-48AE-40BE-B3A2-858A95646089}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7EE31C6A-48AE-40BE-B3A2-858A95646089}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
