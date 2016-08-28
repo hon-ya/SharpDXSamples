@@ -71,7 +71,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="D3DXUtilities.cs" />
     <Compile Include="D3D12HelloMultipleRenderTargets.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -105,6 +104,12 @@
     <Content Include="ShadersMRT.hlsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SharpDXSample\SharpDXSample.csproj">
+      <Project>{01ee566f-d66f-4456-b965-9cac96a25a75}</Project>
+      <Name>SharpDXSample</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

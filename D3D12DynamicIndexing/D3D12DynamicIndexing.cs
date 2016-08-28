@@ -11,6 +11,7 @@ namespace D3D12DynamicIndexing
     using System.Collections.Generic;
     using System.Runtime.InteropServices;
     using System.Diagnostics;
+    using SharpDXSample;
 
     internal class D3D12DynamicIndexing : IDisposable
     {
@@ -318,15 +319,15 @@ namespace D3D12DynamicIndexing
                     );
                 resources.Add(vertexBufferUpload);
 
-                // 頂点データを一時リソースへ書き込み
-                var pDataBegin = vertexBufferUpload.Map(0);
+                var vertexData = new D3D12Utilities.SubresourceData()
                 {
-                    Utilities.Write(pDataBegin, meshData, SampleAssets.VertexDataOffset, SampleAssets.VertexDataSize);
-                }
-                vertexBufferUpload.Unmap(0);
+                    Data = meshData,
+                    Offset = SampleAssets.VertexDataOffset,
+                    RowPitch = SampleAssets.VertexDataSize,
+                    SlicePitch = SampleAssets.VertexDataSize,
+                };
 
-                // 一時リソースから頂点バッファへコピーするコマンドを積み込み
-                CommandList.CopyBufferRegion(VertexBuffer, 0, vertexBufferUpload, 0, SampleAssets.VertexDataSize);
+                D3D12Utilities.UpdateSubresources(Device, CommandList, VertexBuffer, vertexBufferUpload, 0, 0, 1, new[] { vertexData });
 
                 // 頂点シェーダから参照される状態へ、頂点バッファの状態を遷移
                 CommandList.ResourceBarrier(new ResourceTransitionBarrier(VertexBuffer, ResourceStates.CopyDestination, ResourceStates.VertexAndConstantBuffer));
@@ -358,15 +359,15 @@ namespace D3D12DynamicIndexing
                     );
                 resources.Add(indexBufferUpload);
 
-                // インデックスデータを一時リソースへ書き込み
-                var pDataBegin = indexBufferUpload.Map(0);
+                var indexData = new D3D12Utilities.SubresourceData()
                 {
-                    Utilities.Write(pDataBegin, meshData, SampleAssets.IndexDataOffset, SampleAssets.IndexDataSize);
-                }
-                indexBufferUpload.Unmap(0);
+                    Data = meshData,
+                    Offset = SampleAssets.IndexDataOffset,
+                    RowPitch = SampleAssets.IndexDataSize,
+                    SlicePitch = SampleAssets.IndexDataSize,
+                };
 
-                // 一時リソースからインデックスバッファへコピーするコマンドを積み込み
-                CommandList.CopyBufferRegion(IndexBuffer, 0, indexBufferUpload, 0, SampleAssets.IndexDataSize);
+                D3D12Utilities.UpdateSubresources(Device, CommandList, IndexBuffer, indexBufferUpload, 0, 0, 1, new[] { indexData });
 
                 // インデックスシェーダから参照される状態へ、インデックスバッファの状態を遷移
                 CommandList.ResourceBarrier(new ResourceTransitionBarrier(IndexBuffer, ResourceStates.CopyDestination, ResourceStates.IndexBuffer));
@@ -448,7 +449,7 @@ namespace D3D12DynamicIndexing
                     // テクスチャデータをテクスチャバッファにアップロードします。
                     {
                         var subresourceCount = textureDesc.DepthOrArraySize * textureDesc.MipLevels;
-                        var uploadBufferStep = GetRequiredIntermediateSize(CityMaterialTextures[0], 0, subresourceCount);
+                        var uploadBufferStep = D3D12Utilities.GetRequiredIntermediateSize(Device, CityMaterialTextures[0], 0, subresourceCount);
                         var uploadBufferSize = uploadBufferStep * CityMaterialCount;
 
                         var materialsUploadHeap = Device.CreateCommittedResource(
@@ -463,30 +464,16 @@ namespace D3D12DynamicIndexing
                         {
                             for (var i = 0; i < CityMaterialCount; i++)
                             {
-                                // テクスチャデータをアップロード用リソースに書き込み
-                                Utilities.Write(currentUploadPtr, cityTextureDataList[i], 0, cityTextureDataList[i].Length);
-                                currentUploadPtr = IntPtr.Add(currentUploadPtr, (int)uploadBufferStep);
-
                                 // アップロード用リソースからテクスチャバッファへコピー
-                                CommandList.CopyTextureRegion(
-                                    new TextureCopyLocation(CityMaterialTextures[i], 0),
-                                    0, 0, 0,
-                                    new TextureCopyLocation(
-                                        materialsUploadHeap,
-                                        new PlacedSubResourceFootprint()
-                                        {
-                                            Footprint =
-                                            {
-                                            Format = textureDesc.Format,
-                                            Width = (int)textureDesc.Width,
-                                            Height = textureDesc.Height,
-                                            Depth = 1,
-                                            RowPitch = CityMaterialTextureWidth * CityMaterialTextureChannelCount,
-                                            },
-                                            Offset = i * uploadBufferStep,
-                                        }),
-                                    null
-                                    );
+                                var textureData = new D3D12Utilities.SubresourceData()
+                                {
+                                    Data = cityTextureDataList[i],
+                                    Offset = 0,
+                                    RowPitch = CityMaterialTextureWidth * CityMaterialTextureChannelCount,
+                                    SlicePitch = CityMaterialTextureWidth * CityMaterialTextureHeight * CityMaterialTextureChannelCount,
+                                };
+
+                                D3D12Utilities.UpdateSubresources(Device, CommandList, CityMaterialTextures[i], materialsUploadHeap, i * uploadBufferStep, 0, 1, new[] { textureData });
 
                                 CommandList.ResourceBarrier(new ResourceTransitionBarrier(CityMaterialTextures[i], ResourceStates.CopyDestination, ResourceStates.PixelShaderResource));
                             }
@@ -521,25 +508,25 @@ namespace D3D12DynamicIndexing
                         );
 
                     var subresourceCount = textureDesc.DepthOrArraySize * textureDesc.MipLevels;
-                    var uploadBufferSize = GetRequiredIntermediateSize(CityDiffuseTexture, 0, subresourceCount);
+                    var uploadBufferSize = D3D12Utilities.GetRequiredIntermediateSize(Device, CityDiffuseTexture, 0, subresourceCount);
 
                     var textureUploadHeap = Device.CreateCommittedResource(
-                        new HeapProperties(CpuPageProperty.WriteBack, MemoryPool.L0),
+                        new HeapProperties(HeapType.Upload),
                         HeapFlags.None,
-                        textureDesc,
+                        ResourceDescription.Buffer(uploadBufferSize),
                         ResourceStates.GenericRead
                         );
                     resources.Add(textureUploadHeap);
 
-                    var handle = GCHandle.Alloc(meshData, GCHandleType.Pinned);
-                    var ptr = Marshal.UnsafeAddrOfPinnedArrayElement(meshData, 0);
-                    ptr = IntPtr.Add(ptr, SampleAssets.Textures[0].Data[0].Offset);
+                    var textureData = new D3D12Utilities.SubresourceData()
                     {
-                        textureUploadHeap.WriteToSubresource(0, null, ptr, SampleAssets.Textures[0].Data[0].Pitch, SampleAssets.Textures[0].Data[0].Size);
-                    }
-                    handle.Free();
+                        Data = meshData,
+                        Offset = 0,
+                        RowPitch = SampleAssets.Textures[0].Data[0].Pitch,
+                        SlicePitch = SampleAssets.Textures[0].Data[0].Size,
+                    };
 
-                    CommandList.CopyTextureRegion(new TextureCopyLocation(CityDiffuseTexture, 0), 0, 0, 0, new TextureCopyLocation(textureUploadHeap, 0), null);
+                    D3D12Utilities.UpdateSubresources(Device, CommandList, CityDiffuseTexture, textureUploadHeap, 0, 0, 1, new[] { textureData });
 
                     CommandList.ResourceBarrier(new ResourceTransitionBarrier(CityDiffuseTexture, ResourceStates.CopyDestination, ResourceStates.PixelShaderResource));
                 }
@@ -569,7 +556,7 @@ namespace D3D12DynamicIndexing
                     // ディフューズテクスチャの SRV 作成
                     var srvDesc = new ShaderResourceViewDescription()
                     {
-                        Shader4ComponentMapping = D3DXUtilities.DefaultComponentMapping(),
+                        Shader4ComponentMapping = D3D12Utilities.DefaultComponentMapping(),
                         Format = SampleAssets.Textures[0].Format,
                         Dimension = ShaderResourceViewDimension.Texture2D,
                         Texture2D = { MipLevels = 1 },
@@ -582,7 +569,7 @@ namespace D3D12DynamicIndexing
                     {
                         var materialSrvDesc = new ShaderResourceViewDescription()
                         {
-                            Shader4ComponentMapping = D3DXUtilities.DefaultComponentMapping(),
+                            Shader4ComponentMapping = D3D12Utilities.DefaultComponentMapping(),
                             Format = Format.R8G8B8A8_UNorm,
                             Dimension = ShaderResourceViewDimension.Texture2D,
                             Texture2D = { MipLevels = 1 },
@@ -646,16 +633,6 @@ namespace D3D12DynamicIndexing
             {
                 resource.Dispose();
             }
-        }
-
-        private long GetRequiredIntermediateSize(Resource destiationResource, int firstSubresource, int numSubresources)
-        {
-            var desc = destiationResource.Description;
-
-            long requiredSize;
-            Device.GetCopyableFootprints(ref desc, firstSubresource, numSubresources, 0, null, null, null, out requiredSize);
-
-            return requiredSize;
         }
 
         /// <summary>

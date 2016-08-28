@@ -8,6 +8,7 @@ namespace D3D12HelloCompute
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
     using System.Diagnostics;
+    using SharpDXSample;
 
     internal class D3D12HelloCompute : IDisposable
     {
@@ -16,10 +17,14 @@ namespace D3D12HelloCompute
             public int number;
         };
 
+#pragma warning disable 0649
+
         private struct ComputeOutputStruct
         {
             public int result;
         };
+
+#pragma warning restore 0649
 
         private const int FrameCount = 2;
         private const int ThreadBlockSize = 128;
@@ -280,7 +285,7 @@ namespace D3D12HelloCompute
                 {
                     Format = Format.Unknown,
                     Dimension = ShaderResourceViewDimension.Buffer,
-                    Shader4ComponentMapping = D3DXUtilities.DefaultComponentMapping(),
+                    Shader4ComponentMapping = D3D12Utilities.DefaultComponentMapping(),
                     Buffer =
                     {
                         FirstElement = 0,

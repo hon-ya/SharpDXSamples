@@ -9,6 +9,7 @@ namespace D3D12SmallResources
     using SharpDX.Direct3D12;
     using System.Collections.Generic;
     using System.Windows.Forms;
+    using SharpDXSample;
 
     internal class D3D12SmallResources : IDisposable
     {
@@ -329,13 +330,16 @@ namespace D3D12SmallResources
                     );
                 uploadResources.Add(vertexBufferUpload);
 
-                var pVertexDataBegin = vertexBufferUpload.Map(0);
+                var vertexData = new D3D12Utilities.SubresourceData()
                 {
-                    Utilities.Write(pVertexDataBegin, quadVertices, 0, quadVertices.Length);
-                }
-                vertexBufferUpload.Unmap(0);
+                    Data = Utilities.ToByteArray(quadVertices),
+                    Offset = 0,
+                    RowPitch = vertexBufferSize,
+                    SlicePitch = vertexBufferSize,
+                };
 
-                CommandList.CopyBufferRegion(VertexBuffer, 0, vertexBufferUpload, 0, vertexBufferSize);
+                D3D12Utilities.UpdateSubresources(Device, CommandList, VertexBuffer, vertexBufferUpload, 0, 0, 1, new[] { vertexData });
+
                 CommandList.ResourceBarrierTransition(VertexBuffer, ResourceStates.CopyDestination, ResourceStates.VertexAndConstantBuffer);
 
                 VertexBufferView = new VertexBufferView()
@@ -442,7 +446,7 @@ namespace D3D12SmallResources
             var srvHandle = CbvSrvUavViewHeap.CPUDescriptorHandleForHeapStart;
             for(var i = 0; i < TextureCount; i++)
             {
-                var uploadBufferSize = GetRequiredIntermediateSize(Textures[i], 0, 1) + DefaultResourcePlacementAlignment;
+                var uploadBufferSize = D3D12Utilities.GetRequiredIntermediateSize(Device, Textures[i], 0, 1) + DefaultResourcePlacementAlignment;
 
                 var textureUpload = Device.CreateCommittedResource(
                     new HeapProperties(HeapType.Upload),
@@ -452,43 +456,21 @@ namespace D3D12SmallResources
                     );
                 uploadResources.Add(textureUpload);
 
-                // 一時リソース上にテクスチャデータを構築
-                var layouts = new PlacedSubResourceFootprint[1];
+                var textureData = new D3D12Utilities.SubresourceData()
                 {
-                    var texture = GenerateTexture();
+                    Data = GenerateTexture(),
+                    Offset = 0,
+                    RowPitch = TextureWidth * TexturePixelSizeInBytes,
+                    SlicePitch = TextureWidth * TextureHeight * TexturePixelSizeInBytes,
+                };
 
-                    // テクスチャのレイアウト情報を取得
-                    var desc = Textures[i].Description;
-                    var numRows = new int[1];
-                    var rowSizesInBytes = new long[1];
-                    long totalBytes;
-                    Device.GetCopyableFootprints(ref desc, 0, 1, 0, layouts, numRows, rowSizesInBytes, out totalBytes);
-
-                    var ptr = textureUpload.Map(0);
-                    {
-                        for (var row = 0; row < numRows[0]; row++)
-                        {
-                            // テクスチャの RowPitch に合わせて、バッファ上にデータを配置
-                            Utilities.Write(ptr, texture, row * (int)rowSizesInBytes[0], (int)rowSizesInBytes[0]);
-
-                            ptr = IntPtr.Add(ptr, layouts[0].Footprint.RowPitch);
-                        }
-                    }
-                    textureUpload.Unmap(0);
-                }
-
-                // 一時リソースから目的のテクスチャへテクスチャデータをコピー
-                CopyCommandList.CopyTextureRegion(
-                    new TextureCopyLocation(Textures[i], 0),
-                    0, 0, 0,
-                    new TextureCopyLocation(textureUpload, layouts[0]),
-                    null
-                    );
+                // 目的のテクスチャへテクスチャデータをコピー
+                D3D12Utilities.UpdateSubresources(Device, CopyCommandList, Textures[i], textureUpload, 0, 0, 1, new[] { textureData });
 
                 // シェーダリソースビューの作成
                 var srvDesc = new ShaderResourceViewDescription
                 {
-                    Shader4ComponentMapping = D3DXUtilities.DefaultComponentMapping(),
+                    Shader4ComponentMapping = D3D12Utilities.DefaultComponentMapping(),
                     Format = textureDesc.Format,
                     Dimension = ShaderResourceViewDimension.Texture2D,
                     Texture2D = { MipLevels = 1 },
@@ -510,16 +492,6 @@ namespace D3D12SmallResources
             {
                 resource.Dispose();
             }
-        }
-
-        private long GetRequiredIntermediateSize(Resource destiationResource, int firstSubresource, int numSubresources)
-        {
-            var desc = destiationResource.Description;
-
-            long requiredSize;
-            Device.GetCopyableFootprints(ref desc, firstSubresource, numSubresources, 0, null, null, null, out requiredSize);
-
-            return requiredSize;
         }
 
         private byte[] GenerateTexture()

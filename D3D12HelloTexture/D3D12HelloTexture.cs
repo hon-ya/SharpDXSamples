@@ -8,6 +8,7 @@ namespace D3D12HelloTexture
     using SharpDX.Windows;
     using SharpDX.Direct3D12;
     using System.Runtime.InteropServices;
+    using SharpDXSample;
 
     internal class D3D12HelloTexture : IDisposable
     {
@@ -257,27 +258,12 @@ namespace D3D12HelloTexture
                 ResourceStates.CopyDestination
                 );
 
-            var uploadBufferSize = GetRequiredIntermediateSize(Texture, 0, 1);
+            var uploadBufferSize = D3D12Utilities.GetRequiredIntermediateSize(Device, Texture, 0, 1);
 
             // テクスチャのバイナリデータ
-            var textureData = GenerateTextureData();
+            var texture = GenerateTextureData();
 
             // アップロード用のテクスチャリソースを作成し、テクスチャリソースへコピーします。
-#if true
-            var textureUploadHeap = Device.CreateCommittedResource(
-                new HeapProperties(CpuPageProperty.WriteBack, MemoryPool.L0),
-                HeapFlags.None,
-                textureDesc,
-                ResourceStates.GenericRead
-                );
-
-            var handle = GCHandle.Alloc(textureData, GCHandleType.Pinned);
-            var ptr = Marshal.UnsafeAddrOfPinnedArrayElement(textureData, 0);
-            textureUploadHeap.WriteToSubresource(0, null, ptr, TexturePixelSize * TextureWidth, textureData.Length);
-            handle.Free();
-
-            CommandList.CopyTextureRegion(new TextureCopyLocation(Texture, 0), 0, 0, 0, new TextureCopyLocation(textureUploadHeap, 0), null);
-#else
             var textureUploadHeap = Device.CreateCommittedResource(
                 new HeapProperties(HeapType.Upload),
                 HeapFlags.None,
@@ -285,39 +271,23 @@ namespace D3D12HelloTexture
                 ResourceStates.GenericRead
                 );
 
-            var pTextureDataBegin = textureUploadHeap.Map(0);
+            var textureData = new D3D12Utilities.SubresourceData()
             {
-                Utilities.Write(pTextureDataBegin, textureData, 0, textureData.Length);
-            }
-            textureUploadHeap.Unmap(0);
+                Data = texture,
+                Offset = 0,
+                RowPitch = TextureWidth * TexturePixelSize,
+                SlicePitch = TextureWidth * TextureHeight * TexturePixelSize,
+            };
 
-            CommandList.CopyTextureRegion(
-                new TextureCopyLocation(Texture, 0), 
-                0, 0, 0, 
-                new TextureCopyLocation(
-                    textureUploadHeap, 
-                    new PlacedSubResourceFootprint()
-                    {
-                        Footprint =
-                        {
-                            Format = textureDesc.Format,
-                            Width = (int)textureDesc.Width,
-                            Height = textureDesc.Height,
-                            Depth = 1,
-                            RowPitch = TextureWidth * TexturePixelSize,
-                        },
-                        Offset = 0
-                    }),
-                null
-                );
-#endif
+            D3D12Utilities.UpdateSubresources(Device, CommandList, Texture, textureUploadHeap, 0, 0, 1, new[] { textureData });
+
             // コピー先テクスチャをシェーダリソースとして利用するためのリソースバリアを設定します。
             CommandList.ResourceBarrier(new ResourceTransitionBarrier(Texture, ResourceStates.CopyDestination, ResourceStates.PixelShaderResource));
 
             // シェーダリソースビューの作成
             var srvDesc = new ShaderResourceViewDescription
             {
-                Shader4ComponentMapping = D3DXUtilities.DefaultComponentMapping(),
+                Shader4ComponentMapping = D3D12Utilities.DefaultComponentMapping(),
                 Format = textureDesc.Format,
                 Dimension = ShaderResourceViewDimension.Texture2D,
                 Texture2D = { MipLevels = 1 },
@@ -338,16 +308,6 @@ namespace D3D12HelloTexture
 
             // アップロード用のリソースを開放します。
             textureUploadHeap.Dispose();
-        }
-
-        private long GetRequiredIntermediateSize(Resource destiationResource, int firstSubresource, int numSubresources)
-        {
-            var desc = destiationResource.Description;
-
-            long requiredSize;
-            Device.GetCopyableFootprints(ref desc, firstSubresource, numSubresources, 0, null, null, null, out requiredSize);
-
-            return requiredSize;
         }
 
         private byte[] GenerateTextureData()
