@@ -108,110 +108,126 @@ namespace D3D12HelloFrameBuffering
                 factory.MakeWindowAssociation(form.Handle, WindowAssociationFlags.IgnoreAltEnter);
             }
 
-            var rtvHeapDesc = new DescriptorHeapDescription()
+            // デスクリプタヒープを作成します。
             {
-                DescriptorCount = FrameCount,
-                Type = DescriptorHeapType.RenderTargetView,
-                Flags = DescriptorHeapFlags.None,
-            };
-            RenderTargetViewHeap = Device.CreateDescriptorHeap(rtvHeapDesc);
-            RtvDescriptorSize = Device.GetDescriptorHandleIncrementSize(DescriptorHeapType.RenderTargetView);
+                var rtvHeapDesc = new DescriptorHeapDescription()
+                {
+                    DescriptorCount = FrameCount,
+                    Type = DescriptorHeapType.RenderTargetView,
+                    Flags = DescriptorHeapFlags.None,
+                };
+                RenderTargetViewHeap = Device.CreateDescriptorHeap(rtvHeapDesc);
+                RtvDescriptorSize = Device.GetDescriptorHandleIncrementSize(DescriptorHeapType.RenderTargetView);
+            }
 
             // 各フレームごとに必要となるリソースを作成します。
-            var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
-            for (var i = 0; i < FrameCount; i++)
             {
-                // レンダーターゲットビューを作成します。
-                RenderTargets[i] = SwapChain.GetBackBuffer<Resource>(i);
-                Device.CreateRenderTargetView(RenderTargets[i], null, rtvDescHandle);
-                rtvDescHandle += RtvDescriptorSize;
+                var rtvDescHandle = RenderTargetViewHeap.CPUDescriptorHandleForHeapStart;
+                for (var i = 0; i < FrameCount; i++)
+                {
+                    // レンダーターゲットビューを作成します。
+                    RenderTargets[i] = SwapChain.GetBackBuffer<Resource>(i);
+                    Device.CreateRenderTargetView(RenderTargets[i], null, rtvDescHandle);
+                    rtvDescHandle += RtvDescriptorSize;
 
-                // コマンドバッファアロケータを作成します。
-                CommandAllocators[i] = Device.CreateCommandAllocator(CommandListType.Direct);
+                    // コマンドバッファアロケータを作成します。
+                    CommandAllocators[i] = Device.CreateCommandAllocator(CommandListType.Direct);
+                }
             }
         }
 
         private void LoadAssets()
         {
-            var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout);
-            RootSignature = Device.CreateRootSignature(rootSignatureDesc.Serialize());
+            // ルートシグネチャを作成します。
+            {
+                var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout);
+                RootSignature = Device.CreateRootSignature(rootSignatureDesc.Serialize());
+            }
 
+            // パイプラインステートオブジェクトを作成します。
+            {
 #if DEBUG
-            var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
-            var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
+                var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
+                var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug));
 #else
-            var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0"));
-            var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0"));
+                var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0"));
+                var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0"));
 #endif
 
-            var inputElementDescs = new []
-            {
-                new InputElement("POSITION", 0, Format.R32G32B32_Float, 0, 0),
-                new InputElement("COLOR", 0, Format.R32G32B32A32_Float, 12, 0),
-            };
-
-            var psoDesc = new GraphicsPipelineStateDescription()
-            {
-                InputLayout = new InputLayoutDescription(inputElementDescs),
-                RootSignature = RootSignature,
-                VertexShader = vertexShader,
-                PixelShader = pixelShader,
-                RasterizerState = RasterizerStateDescription.Default(),
-                BlendState = BlendStateDescription.Default(),
-                DepthStencilFormat = Format.D32_Float,
-                DepthStencilState = new DepthStencilStateDescription()
+                var inputElementDescs = new[]
                 {
-                    IsDepthEnabled = false,
-                    IsStencilEnabled = false,
-                },
-                SampleMask = int.MaxValue,
-                PrimitiveTopologyType = PrimitiveTopologyType.Triangle,
-                RenderTargetCount = 1,
-                Flags = PipelineStateFlags.None,
-                SampleDescription = new SampleDescription(1, 0),
-                StreamOutput = new StreamOutputDescription(),
-            };
-            psoDesc.RenderTargetFormats[0] = Format.R8G8B8A8_UNorm;
+                    new InputElement("POSITION", 0, Format.R32G32B32_Float, 0, 0),
+                    new InputElement("COLOR", 0, Format.R32G32B32A32_Float, 12, 0),
+                };
 
-            PipelineState = Device.CreateGraphicsPipelineState(psoDesc);
+                var psoDesc = new GraphicsPipelineStateDescription()
+                {
+                    InputLayout = new InputLayoutDescription(inputElementDescs),
+                    RootSignature = RootSignature,
+                    VertexShader = vertexShader,
+                    PixelShader = pixelShader,
+                    RasterizerState = RasterizerStateDescription.Default(),
+                    BlendState = BlendStateDescription.Default(),
+                    DepthStencilFormat = Format.D32_Float,
+                    DepthStencilState = new DepthStencilStateDescription()
+                    {
+                        IsDepthEnabled = false,
+                        IsStencilEnabled = false,
+                    },
+                    SampleMask = int.MaxValue,
+                    PrimitiveTopologyType = PrimitiveTopologyType.Triangle,
+                    RenderTargetCount = 1,
+                    Flags = PipelineStateFlags.None,
+                    SampleDescription = new SampleDescription(1, 0),
+                    StreamOutput = new StreamOutputDescription(),
+                };
+                psoDesc.RenderTargetFormats[0] = Format.R8G8B8A8_UNorm;
+
+                PipelineState = Device.CreateGraphicsPipelineState(psoDesc);
+            }
 
             CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocators[FrameIndex], PipelineState);
             CommandList.Close();
 
             // 頂点データを定義します。
-            float aspectRatio = Viewport.Width / Viewport.Height;
-            var triangleVertices = new[]
             {
-                new Vertex { Position = new Vector3(0.0f, 0.25f * aspectRatio, 0.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3(0.25f, -0.25f * aspectRatio, 0.0f), Color = new Vector4(0.0f, 1.0f, 0.0f, 0.0f) },
-                new Vertex { Position = new Vector3(-0.25f, -0.25f * aspectRatio, 0.0f), Color = new Vector4(0.0f, 0.0f, 1.0f, 0.0f) },
-            };
-            var vertexBufferSize = Utilities.SizeOf(triangleVertices);
+                float aspectRatio = Viewport.Width / Viewport.Height;
+                var triangleVertices = new[]
+                {
+                    new Vertex { Position = new Vector3(0.0f, 0.25f * aspectRatio, 0.0f), Color = new Vector4(1.0f, 0.0f, 0.0f, 0.0f) },
+                    new Vertex { Position = new Vector3(0.25f, -0.25f * aspectRatio, 0.0f), Color = new Vector4(0.0f, 1.0f, 0.0f, 0.0f) },
+                    new Vertex { Position = new Vector3(-0.25f, -0.25f * aspectRatio, 0.0f), Color = new Vector4(0.0f, 0.0f, 1.0f, 0.0f) },
+                };
+                var vertexBufferSize = Utilities.SizeOf(triangleVertices);
 
-            VertexBuffer = Device.CreateCommittedResource(
-                new HeapProperties(HeapType.Upload), 
-                HeapFlags.None, 
-                ResourceDescription.Buffer(vertexBufferSize), 
-                ResourceStates.GenericRead
-                );
+                VertexBuffer = Device.CreateCommittedResource(
+                    new HeapProperties(HeapType.Upload),
+                    HeapFlags.None,
+                    ResourceDescription.Buffer(vertexBufferSize),
+                    ResourceStates.GenericRead
+                    );
 
-            var pVertexDataBegin = VertexBuffer.Map(0);
-            {
-                Utilities.Write(pVertexDataBegin, triangleVertices, 0, triangleVertices.Length);
+                var pVertexDataBegin = VertexBuffer.Map(0);
+                {
+                    Utilities.Write(pVertexDataBegin, triangleVertices, 0, triangleVertices.Length);
+                }
+                VertexBuffer.Unmap(0);
+
+                VertexBufferView = new VertexBufferView()
+                {
+                    BufferLocation = VertexBuffer.GPUVirtualAddress,
+                    StrideInBytes = Utilities.SizeOf<Vertex>(),
+                    SizeInBytes = vertexBufferSize,
+                };
             }
-            VertexBuffer.Unmap(0);
 
-            VertexBufferView = new VertexBufferView()
+            // 同期オブジェクトを作成します。
             {
-                BufferLocation = VertexBuffer.GPUVirtualAddress,
-                StrideInBytes = Utilities.SizeOf<Vertex>(),
-                SizeInBytes = vertexBufferSize,
-            };
+                Fence = Device.CreateFence(FenceValues[FrameIndex], FenceFlags.None);
+                FenceValues[FrameIndex]++;
 
-            Fence = Device.CreateFence(FenceValues[FrameIndex], FenceFlags.None);
-            FenceValues[FrameIndex]++;
-
-            FenceEvent = new AutoResetEvent(false);
+                FenceEvent = new AutoResetEvent(false);
+            }
         }
 
         internal void Update()
