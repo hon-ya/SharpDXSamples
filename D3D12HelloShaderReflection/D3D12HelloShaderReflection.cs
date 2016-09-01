@@ -16,7 +16,7 @@ namespace D3D12HelloShaderReflection
         {
             public Vector4 Position;
             public Vector4 Color;
-        };
+        }
 
         private const int FrameCount = 2;
 

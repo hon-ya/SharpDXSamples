@@ -98,9 +98,6 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="ShadersShadowMap.hlsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="Shaders.hlsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

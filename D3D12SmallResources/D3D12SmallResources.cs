@@ -17,7 +17,7 @@ namespace D3D12SmallResources
         {
             public Vector3 Position;
             public Vector2 UV;
-        };
+        }
 
         private const int FrameCount = 2;
         private const int GridWidth = 11;

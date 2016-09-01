@@ -27,7 +27,7 @@ namespace D3D12ExecuteIndirect
         }
 
         // 定数バッファ。配列で扱うために、アライメントである 256 byte にサイズを固定しています。
-        [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 256)]
+        [StructLayout(LayoutKind.Sequential, Pack = 16, Size = 256)]
         private struct ConstantBufferDataStruct
         {
             public Vector4 Velocity;

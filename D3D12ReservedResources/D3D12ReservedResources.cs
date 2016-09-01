@@ -19,7 +19,7 @@ namespace D3D12ReservedResources
         {
             public Vector3 Position;
             public Vector2 UV;
-        };
+        }
 
         private struct MipInfo
         {

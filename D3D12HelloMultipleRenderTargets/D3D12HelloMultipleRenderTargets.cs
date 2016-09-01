@@ -16,7 +16,7 @@ namespace D3D12HelloMultipleRenderTargets
         {
             public Vector3 Position;
             public Vector2 TexCoord;
-        };
+        }
 
         private struct VertexMRT
         {
@@ -25,7 +25,7 @@ namespace D3D12HelloMultipleRenderTargets
             public Vector4 Color1;
             public Vector4 Color2;
             public Vector4 Color3;
-        };
+        }
 
         private const int FrameCount = 2;
         private const int MRTCount = 4;

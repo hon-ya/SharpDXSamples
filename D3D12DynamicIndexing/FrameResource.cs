@@ -12,7 +12,7 @@ namespace D3D12DynamicIndexing
 
     class FrameResource : IDisposable
     {
-        [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 256)]
+        [StructLayout(LayoutKind.Sequential, Pack = 16, Size = 256)]
         public struct ConstantBufferDataStruct
         {
             public Matrix Mvp;
