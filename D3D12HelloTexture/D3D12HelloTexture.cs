@@ -16,7 +16,7 @@ namespace D3D12HelloTexture
         {
             public Vector3 Position;
             public Vector2 TexCoord;
-        };
+        }
 
         private const int FrameCount = 2;
 

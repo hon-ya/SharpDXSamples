@@ -17,9 +17,9 @@ namespace D3D12ShadowMap
         {
             public Vector3 Position;
             public Vector4 Color;
-        };
+        }
 
-        [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 512)]
+        [StructLayout(LayoutKind.Sequential, Pack = 16, Size = 512)]
         private struct ConstantBufferDataStruct
         {
             public Matrix Model;
@@ -27,12 +27,6 @@ namespace D3D12ShadowMap
             public Matrix Projection;
             public Matrix LightView;
             public Matrix LightProjection;
-        }
-
-        enum MaterialType
-        {
-            Cube,
-            Ground,
         }
 
         private const int FrameCount = 2;
@@ -61,7 +55,6 @@ namespace D3D12ShadowMap
         private Rectangle ScissorRect;
         private Rectangle ScissorRectShadowMap;
         private RootSignature RootSignature;
-        private RootSignature RootSignatureShadowMap;
         private PipelineState PipelineState;
         private PipelineState PipelineStateShadowMap;
         private Resource VertexBuffer;
@@ -96,7 +89,6 @@ namespace D3D12ShadowMap
             }
             CommandQueue.Dispose();
             RootSignature.Dispose();
-            RootSignatureShadowMap.Dispose();
             RenderTargetViewHeap.Dispose();
             DepthStencilViewHeap.Dispose();
             CbvSrvUavHeap.Dispose();
@@ -207,6 +199,7 @@ namespace D3D12ShadowMap
         private void LoadAssets()
         {
             {
+                // ルートシグネチャは共用する。
                 var rootSignatureDesc = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout,
                     new[]
                     {
@@ -237,21 +230,6 @@ namespace D3D12ShadowMap
                         },
                     });
                 RootSignature = Device.CreateRootSignature(rootSignatureDesc.Serialize());
-
-                // シャドウマップ生成用ルートシグネチャ
-                var rootSignatureDescShadowMap = new RootSignatureDescription(RootSignatureFlags.AllowInputAssemblerInputLayout,
-                    new[]
-                    {
-                        new RootParameter(ShaderVisibility.Vertex,
-                            new DescriptorRange()
-                            {
-                                RangeType = DescriptorRangeType.ConstantBufferView,
-                                BaseShaderRegister = 0,
-                                OffsetInDescriptorsFromTableStart = 0,
-                                DescriptorCount = 1,
-                            }),
-                    });
-                RootSignatureShadowMap = Device.CreateRootSignature(rootSignatureDescShadowMap.Serialize());
             }
 
             {
@@ -292,26 +270,21 @@ namespace D3D12ShadowMap
 
                 // シャドウマップ生成用パイプラインステートオブジェクトの作成
 #if DEBUG
-                var vertexShaderShadowMap = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("ShadersShadowMap.hlsl", "VSMainSM", "vs_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug | SharpDX.D3DCompiler.ShaderFlags.SkipOptimization));
+                var vertexShaderShadowMap = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMainSM", "vs_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug | SharpDX.D3DCompiler.ShaderFlags.SkipOptimization));
 #else
                 var vertexShaderShadowMap = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("ShadersShadowMap.hlsl", "VSMainSM", "vs_5_0"));
 #endif
 
-                var inputElementDescsShadowMap = new[]
-                {
-                    new InputElement("POSITION", 0, Format.R32G32B32_Float, 0, 0),
-                    new InputElement("COLOR", 0, Format.R32G32B32A32_Float, 12, 0),
-                };
-
                 var rasterizerStateShadowMap = RasterizerStateDescription.Default();
                 rasterizerStateShadowMap.CullMode = CullMode.Front;
 
+                // レンダーターゲットに対して描画しないため、ピクセルシェーダは使わない
                 var psoDescShadowMap = new GraphicsPipelineStateDescription()
                 {
-                    InputLayout = new InputLayoutDescription(inputElementDescsShadowMap),
-                    RootSignature = RootSignatureShadowMap,
+                    InputLayout = new InputLayoutDescription(inputElementDescs),
+                    RootSignature = RootSignature,
                     VertexShader = vertexShaderShadowMap,
-                    PixelShader = null,
+                    PixelShader = null, 
                     RasterizerState = rasterizerStateShadowMap,
                     BlendState = BlendStateDescription.Default(),
                     DepthStencilFormat = Format.D32_Float,
@@ -328,7 +301,8 @@ namespace D3D12ShadowMap
             }
 
             CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocators[FrameIndex], PipelineState);
-            CommandList.Close();
+
+            var uploadResources = new List<Resource>();
 
             {
                 var vertices = new[]
@@ -384,17 +358,31 @@ namespace D3D12ShadowMap
                 var vertexBufferSize = Utilities.SizeOf(vertices);
 
                 VertexBuffer = Device.CreateCommittedResource(
+                    new HeapProperties(HeapType.Default),
+                    HeapFlags.None,
+                    ResourceDescription.Buffer(vertexBufferSize),
+                    ResourceStates.CopyDestination
+                    );
+
+                var vertexBufferUpload = Device.CreateCommittedResource(
                     new HeapProperties(HeapType.Upload),
                     HeapFlags.None,
                     ResourceDescription.Buffer(vertexBufferSize),
                     ResourceStates.GenericRead
                     );
+                uploadResources.Add(vertexBufferUpload);
 
-                var pVertexDataBegin = VertexBuffer.Map(0);
+                var vertexData = new D3D12Utilities.SubresourceData()
                 {
-                    Utilities.Write(pVertexDataBegin, vertices, 0, vertices.Length);
-                }
-                VertexBuffer.Unmap(0);
+                    Data = Utilities.ToByteArray(vertices),
+                    Offset = 0,
+                    RowPitch = vertexBufferSize,
+                    SlicePitch = vertexBufferSize,
+                };
+
+                D3D12Utilities.UpdateSubresources(Device, CommandList, VertexBuffer, vertexBufferUpload, 0, 0, 1, new[] { vertexData });
+
+                CommandList.ResourceBarrierTransition(VertexBuffer, ResourceStates.CopyDestination, ResourceStates.VertexAndConstantBuffer);
 
                 VertexBufferView = new VertexBufferView()
                 {
@@ -426,17 +414,31 @@ namespace D3D12ShadowMap
                 var indexBufferSize = Utilities.SizeOf(indices) + Utilities.SizeOf(indices);
 
                 IndexBuffer = Device.CreateCommittedResource(
+                    new HeapProperties(HeapType.Default),
+                    HeapFlags.None,
+                    ResourceDescription.Buffer(indexBufferSize),
+                    ResourceStates.CopyDestination
+                    );
+
+                var indexBufferUpload = Device.CreateCommittedResource(
                     new HeapProperties(HeapType.Upload),
                     HeapFlags.None,
                     ResourceDescription.Buffer(indexBufferSize),
                     ResourceStates.GenericRead
                     );
+                uploadResources.Add(indexBufferUpload);
 
-                var pIndexDataBegin = IndexBuffer.Map(0);
+                var indexData = new D3D12Utilities.SubresourceData()
                 {
-                    Utilities.Write(pIndexDataBegin, indices, 0, indices.Length);
-                }
-                IndexBuffer.Unmap(0);
+                    Data = Utilities.ToByteArray(indices),
+                    Offset = 0,
+                    RowPitch = indexBufferSize,
+                    SlicePitch = indexBufferSize,
+                };
+
+                D3D12Utilities.UpdateSubresources(Device, CommandList, IndexBuffer, indexBufferUpload, 0, 0, 1, new[] { indexData });
+
+                CommandList.ResourceBarrier(new ResourceTransitionBarrier(IndexBuffer, ResourceStates.CopyDestination, ResourceStates.IndexBuffer));
 
                 IndexBufferView = new IndexBufferView()
                 {
@@ -473,6 +475,48 @@ namespace D3D12ShadowMap
                     );
 
                 Device.CreateDepthStencilView(DepthStencil, depthStencilDesc, DepthStencilViewHeap.CPUDescriptorHandleForHeapStart);
+            }
+
+            {
+                ConstantBuffer = Device.CreateCommittedResource(
+                    new HeapProperties(HeapType.Upload),
+                    HeapFlags.None,
+                    ResourceDescription.Buffer(Utilities.SizeOf<ConstantBufferDataStruct>() * MaterialCount * FrameCount),
+                    ResourceStates.GenericRead
+                    );
+
+                ConstantBufferPtr = ConstantBuffer.Map(0);
+
+                var currentPtr = ConstantBufferPtr;
+                for (var i = 0; i < FrameCount; i++)
+                {
+                    for (var j = 0; j < MaterialCount; j++)
+                    {
+                        Utilities.Write(currentPtr, ref ConstantBufferData[j]);
+
+                        currentPtr = IntPtr.Add(currentPtr, Utilities.SizeOf<ConstantBufferDataStruct>());
+                    }
+                }
+
+                var cbvDesc = new ConstantBufferViewDescription()
+                {
+                    BufferLocation = ConstantBuffer.GPUVirtualAddress,
+                    SizeInBytes = Utilities.SizeOf<ConstantBufferDataStruct>(),
+                };
+
+                var srvHandle = CbvSrvUavHeap.CPUDescriptorHandleForHeapStart;
+                for (var i = 0; i < FrameCount; i++)
+                {
+                    srvHandle += CbvSrvUavDescriptorSize;
+
+                    for (var j = 0; j < MaterialCount; j++)
+                    {
+                        Device.CreateConstantBufferView(cbvDesc, srvHandle);
+
+                        cbvDesc.BufferLocation += cbvDesc.SizeInBytes;
+                        srvHandle += CbvSrvUavDescriptorSize;
+                    }
+                }
             }
 
             // シャドウマップ用のデプステクスチャの作成
@@ -524,53 +568,21 @@ namespace D3D12ShadowMap
                 }
             }
 
-            {
-                ConstantBuffer = Device.CreateCommittedResource(
-                    new HeapProperties(HeapType.Upload),
-                    HeapFlags.None,
-                    ResourceDescription.Buffer(Utilities.SizeOf<ConstantBufferDataStruct>() * MaterialCount * FrameCount),
-                    ResourceStates.GenericRead
-                    );
-
-                ConstantBufferPtr = ConstantBuffer.Map(0);
-
-                var currentPtr = ConstantBufferPtr;
-                for(var i = 0; i < FrameCount; i++)
-                {
-                    for(var j = 0; j < MaterialCount; j++)
-                    {
-                        Utilities.Write(currentPtr, ref ConstantBufferData[j]);
-
-                        currentPtr = IntPtr.Add(currentPtr, Utilities.SizeOf<ConstantBufferDataStruct>());
-                    }
-                }
-
-                var cbvDesc = new ConstantBufferViewDescription()
-                {
-                    BufferLocation = ConstantBuffer.GPUVirtualAddress,
-                    SizeInBytes = Utilities.SizeOf<ConstantBufferDataStruct>(),
-                };
-
-                var srvHandle = CbvSrvUavHeap.CPUDescriptorHandleForHeapStart;
-                for (var i = 0; i < FrameCount; i++)
-                {
-                    srvHandle += CbvSrvUavDescriptorSize;
-
-                    for (var j = 0; j < MaterialCount; j++)
-                    {
-                        Device.CreateConstantBufferView(cbvDesc, srvHandle);
-
-                        cbvDesc.BufferLocation += cbvDesc.SizeInBytes;
-                        srvHandle += CbvSrvUavDescriptorSize;
-                    }
-                }
-            }
+            CommandList.Close();
+            CommandQueue.ExecuteCommandList(CommandList);
 
             {
                 Fence = Device.CreateFence(FenceValues[FrameIndex], FenceFlags.None);
                 FenceValues[FrameIndex]++;
 
                 FenceEvent = new AutoResetEvent(false);
+
+                WaitForGpu();
+            }
+
+            foreach(var resource in uploadResources)
+            {
+                resource.Dispose();
             }
         }
 
@@ -644,6 +656,8 @@ namespace D3D12ShadowMap
             CommandAllocators[FrameIndex].Reset();
             CommandList.Reset(CommandAllocators[FrameIndex], null);
 
+            CommandList.SetGraphicsRootSignature(RootSignature);
+
             CommandList.SetDescriptorHeaps(1, new[] { CbvSrvUavHeap });
 
             CommandList.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
@@ -651,7 +665,6 @@ namespace D3D12ShadowMap
             // シャドウマップを生成する
             {
                 CommandList.PipelineState = PipelineStateShadowMap;
-                CommandList.SetGraphicsRootSignature(RootSignatureShadowMap);
 
                 CommandList.SetViewport(ViewportShadowMap);
                 CommandList.SetScissorRectangles(ScissorRectShadowMap);
@@ -681,7 +694,6 @@ namespace D3D12ShadowMap
             // シャドウマップを利用した描画を行う
             {
                 CommandList.PipelineState = PipelineState;
-                CommandList.SetGraphicsRootSignature(RootSignature);
 
                 CommandList.SetViewport(Viewport);
                 CommandList.SetScissorRectangles(ScissorRect);

@@ -14,7 +14,7 @@ namespace D3D12HelloHLSLRootSignature
         {
             public Vector3 Position;
             public Vector4 Color;
-        };
+        }
 
         private const int FrameCount = 2;
 

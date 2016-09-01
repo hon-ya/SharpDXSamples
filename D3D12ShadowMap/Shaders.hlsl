@@ -24,6 +24,22 @@ struct PixelShaderInput
 Texture2D g_Texture : register(t0);
 SamplerState g_Sampler : register(s0);
 
+// for creating shadow map
+PixelShaderInput VSMainSM(VertexShaderInput input)
+{
+	PixelShaderInput output;
+
+	float4 position = input.position;
+	position = mul(position, modelMatrix);
+	position = mul(position, lightViewMatrix);
+	position = mul(position, lightProjectionMatrix);
+
+	output.position = position;
+
+	return output;
+}
+
+// for using shadow map
 PixelShaderInput VSMain(VertexShaderInput input)
 {
 	PixelShaderInput output;
@@ -45,6 +61,7 @@ PixelShaderInput VSMain(VertexShaderInput input)
 	return output;
 }
 
+// for using shadow map
 float4 PSMain(PixelShaderInput input) : SV_TARGET
 {
 	float depthBias = 0.000001f;

@@ -16,9 +16,9 @@ namespace D3D12PredicationQueries
         {
             public Vector3 Position;
             public Vector4 Color;
-        };
+        }
 
-        [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 256)]
+        [StructLayout(LayoutKind.Sequential, Pack = 16, Size = 256)]
         private struct ConstantBufferDataStruct
         {
             public Vector4 Offset;
