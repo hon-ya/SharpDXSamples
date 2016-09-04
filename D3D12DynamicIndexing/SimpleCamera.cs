@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 namespace D3D12DynamicIndexing
 {
     using SharpDX;
+    using SharpDX.Windows;
 
     class SimpleCamera
     {
@@ -43,6 +44,18 @@ namespace D3D12DynamicIndexing
             InitialPosition = position;
 
             Reset();
+        }
+
+        public void RegisterHandler(RenderForm form)
+        {
+            form.KeyDown += OnKeyDown;
+            form.KeyUp += OnKeyUp;
+        }
+
+        public void UnregisterHandler(RenderForm form)
+        {
+            form.KeyDown -= OnKeyDown;
+            form.KeyUp -= OnKeyUp;
         }
 
         public void Reset()

@@ -103,16 +103,10 @@ namespace D3D12DynamicIndexing
         {
             Camera.Initialize(new Vector3((CityColumnCount / 2.0f) * CitySpacingInterval - (CitySpacingInterval / 2.0f), 15, 50));
             Camera.MoveSpeed = CitySpacingInterval * 2.0f;
+            Camera.RegisterHandler(form);
 
-            SetupKeyHandler(form);
             LoadPipeline(form);
             LoadAssets();
-        }
-
-        private void SetupKeyHandler(RenderForm form)
-        {
-            form.KeyDown += Camera.OnKeyDown;
-            form.KeyUp += Camera.OnKeyUp;
         }
 
         private void LoadPipeline(RenderForm form)
