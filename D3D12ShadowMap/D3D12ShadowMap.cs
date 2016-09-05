@@ -10,15 +10,6 @@ namespace D3D12ShadowMap
     using System.Collections.Generic;
     using System.Runtime.InteropServices;
     using SharpDXSample;
-    using System.Diagnostics;
-
-    internal static class EnumUtilities
-    {
-        static public int GetCount<T>() where T : struct
-        {
-            return Enum.GetNames(typeof(T)).Length;
-        }
-    }
 
     internal class D3D12ShadowMap : IDisposable
     {
@@ -128,6 +119,14 @@ namespace D3D12ShadowMap
         {
             LoadPipeline(form);
             LoadAssets();
+        }
+
+        private void OnKeyDown(object sender, System.Windows.Forms.KeyEventArgs e)
+        {
+            if (e.KeyCode == System.Windows.Forms.Keys.C)
+            {
+                CurrentShadowType = (ShadowType)(((int)CurrentShadowType + 1) % EnumUtilities.GetCount<ShadowType>());
+            }
         }
 
         private void LoadPipeline(RenderForm form)
@@ -615,14 +614,6 @@ namespace D3D12ShadowMap
             foreach(var resource in uploadResources)
             {
                 resource.Dispose();
-            }
-        }
-
-        private void OnKeyDown(object sender, System.Windows.Forms.KeyEventArgs e)
-        {
-            if (e.KeyCode == System.Windows.Forms.Keys.C)
-            {
-                CurrentShadowType = (ShadowType)(((int)CurrentShadowType + 1) % EnumUtilities.GetCount<ShadowType>());
             }
         }
 

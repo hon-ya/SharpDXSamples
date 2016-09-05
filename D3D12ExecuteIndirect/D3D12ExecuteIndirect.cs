@@ -10,14 +10,6 @@ namespace D3D12ExecuteIndirect
     using System.Runtime.InteropServices;
     using SharpDXSample;
 
-    internal static class EnumUtilities
-    {
-        static public int GetCount<T>() where T : struct
-        {
-            return Enum.GetNames(typeof(T)).Length;
-        }
-    }
-
     internal class D3D12ExecuteIndirect : IDisposable
     {
         // 頂点データ
