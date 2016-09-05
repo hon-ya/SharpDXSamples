@@ -60,7 +60,6 @@ namespace D3D12DynamicIndexing
         private int IndicesCount;
         private FrameResource CurrentFrameResource;
         private SimpleCamera Camera = new SimpleCamera();
-        private Stopwatch Stopwatch = Stopwatch.StartNew();
 
         public void Dispose()
         {
@@ -101,10 +100,6 @@ namespace D3D12DynamicIndexing
 
         internal void Initialize(RenderForm form)
         {
-            Camera.Initialize(new Vector3((CityColumnCount / 2.0f) * CitySpacingInterval - (CitySpacingInterval / 2.0f), 15, 50));
-            Camera.MoveSpeed = CitySpacingInterval * 2.0f;
-            Camera.RegisterHandler(form);
-
             LoadPipeline(form);
             LoadAssets();
         }
@@ -116,6 +111,10 @@ namespace D3D12DynamicIndexing
 
             Viewport = new ViewportF(0, 0, Width, Height, 0.0f, 1.0f);
             ScissorRect = new Rectangle(0, 0, Width, Height);
+
+            Camera.Initialize(new Vector3((CityColumnCount / 2.0f) * CitySpacingInterval - (CitySpacingInterval / 2.0f), 15, 50));
+            Camera.MoveSpeed = CitySpacingInterval * 2.0f;
+            Camera.RegisterHandler(form);
 
 #if DEBUG
             {
@@ -672,12 +671,9 @@ namespace D3D12DynamicIndexing
 
         internal void Update()
         {
-            var elapsedTime = Stopwatch.Elapsed;
-            Stopwatch.Restart();
-
             CurrentFrameResource = FrameResources[FrameIndex];
 
-            Camera.Update(elapsedTime);
+            Camera.Update();
 
             // 定数バッファを更新
             CurrentFrameResource.UpdateConstantBuffers(Camera.GetViewMatrix(), Camera.GetProjectionMatrix(0.8f, 1.0f * Width / Height));

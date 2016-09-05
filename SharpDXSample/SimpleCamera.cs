@@ -8,6 +8,7 @@ namespace SharpDXSample
 {
     using SharpDX;
     using SharpDX.Windows;
+    using System.Diagnostics;
 
     public class SimpleCamera
     {
@@ -30,8 +31,9 @@ namespace SharpDXSample
         private Vector3 Position;
         private float Yaw;
         private KeysPressedStruct KeysPressed;
+        private Stopwatch Stopwatch = Stopwatch.StartNew();
 
-        public float MoveSpeed { get; set; } = 20.0f;
+        public float MoveSpeed { get; set; } = 10.0f;
         public float TurnSpeed { get; set; } = MathUtil.PiOverTwo;
 
         public SimpleCamera()
@@ -63,10 +65,15 @@ namespace SharpDXSample
             Yaw = MathUtil.Pi;
             Pitch = 0.0f;
             LookDirection = new Vector3(0.0f, 0.0f, -1.0f);
+
+            Stopwatch.Restart();
         }
 
-        public void Update(TimeSpan elapsedTime)
+        public void Update()
         {
+            var elapsedTime = Stopwatch.Elapsed;
+            Stopwatch.Restart();
+
             var move = Vector3.Zero;
 
             if(KeysPressed.A)
