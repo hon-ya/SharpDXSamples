@@ -61,8 +61,8 @@ PixelShaderInput VSMain(VertexShaderInput input)
 	return output;
 }
 
-// for using shadow map
-float4 PSMain(PixelShaderInput input) : SV_TARGET
+// Simple shadow
+float4 PSMainSimple(PixelShaderInput input) : SV_TARGET
 {
 	float depthBias = 0.000001f;
 
@@ -71,7 +71,28 @@ float4 PSMain(PixelShaderInput input) : SV_TARGET
 	uv.y = -uv.y / 2.0f + 0.5f;
 	uv.z = uv.z - depthBias;
 
-	float depth = g_Texture.SampleCmpLevelZero(g_Sampler, uv.xy, uv.z).r;
+	float shadow = g_Texture.SampleCmpLevelZero(g_Sampler, uv.xy, uv.z).r;
 
-	return input.color * depth;
+	return input.color * shadow;
+}
+
+// PCF shadow
+float4 PSMainPCF(PixelShaderInput input) : SV_TARGET
+{
+	float depthBias = 0.000001f;
+
+	float3 uv = input.lightViewPosition.xyz / input.lightViewPosition.w;
+	uv.x = uv.x / 2.0f + 0.5f;
+	uv.y = -uv.y / 2.0f + 0.5f;
+	uv.z = uv.z - depthBias;
+
+	float sum = 0;
+	sum += g_Texture.SampleCmpLevelZero(g_Sampler, uv.xy, uv.z, float2(-1, -1)).r;
+	sum += g_Texture.SampleCmpLevelZero(g_Sampler, uv.xy, uv.z, float2(-1, 1)).r;
+	sum += g_Texture.SampleCmpLevelZero(g_Sampler, uv.xy, uv.z, float2(1, -1)).r;
+	sum += g_Texture.SampleCmpLevelZero(g_Sampler, uv.xy, uv.z, float2(1, 1)).r;
+
+	float shadow = sum * 0.25f;
+
+	return input.color * shadow;
 }

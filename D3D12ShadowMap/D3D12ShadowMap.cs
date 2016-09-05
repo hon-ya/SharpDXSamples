@@ -12,6 +12,14 @@ namespace D3D12ShadowMap
     using SharpDXSample;
     using System.Diagnostics;
 
+    internal static class EnumUtilities
+    {
+        static public int GetCount<T>() where T : struct
+        {
+            return Enum.GetNames(typeof(T)).Length;
+        }
+    }
+
     internal class D3D12ShadowMap : IDisposable
     {
         private struct Vertex
@@ -30,6 +38,12 @@ namespace D3D12ShadowMap
             public Matrix LightProjection;
         }
 
+        enum ShadowType
+        {
+            Simple,
+            PCF,
+        }
+
         private const int FrameCount = 2;
         private const int MaterialCount = 2;
         private const int ShadowMapWidth = 512;
@@ -38,6 +52,7 @@ namespace D3D12ShadowMap
         private int Width;
         private int Height;
         private int FrameNumber = 0;
+        private ShadowType CurrentShadowType;
 
         private Device Device;
         private CommandQueue CommandQueue;
@@ -56,7 +71,8 @@ namespace D3D12ShadowMap
         private Rectangle ScissorRect;
         private Rectangle ScissorRectShadowMap;
         private RootSignature RootSignature;
-        private PipelineState PipelineState;
+        private PipelineState PipelineStateSimple;
+        private PipelineState PipelineStatePCF;
         private PipelineState PipelineStateShadowMap;
         private Resource VertexBuffer;
         private VertexBufferView VertexBufferView;
@@ -72,6 +88,7 @@ namespace D3D12ShadowMap
         private Resource DepthStencil;
         private Resource[] ShadowMaps = new Resource[FrameCount];
         private SimpleCamera Camera = new SimpleCamera();
+        private RenderForm Form;
 
         public void Dispose()
         {
@@ -94,7 +111,8 @@ namespace D3D12ShadowMap
             RenderTargetViewHeap.Dispose();
             DepthStencilViewHeap.Dispose();
             CbvSrvUavHeap.Dispose();
-            PipelineState.Dispose();
+            PipelineStateSimple.Dispose();
+            PipelineStatePCF.Dispose();
             PipelineStateShadowMap.Dispose();
             CommandList.Dispose();
             DepthStencil.Dispose();
@@ -114,6 +132,9 @@ namespace D3D12ShadowMap
 
         private void LoadPipeline(RenderForm form)
         {
+            Form = form;
+            Form.KeyDown += OnKeyDown;
+
             Width = form.ClientSize.Width;
             Height = form.ClientSize.Height;
 
@@ -241,10 +262,12 @@ namespace D3D12ShadowMap
             {
 #if DEBUG
                 var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug | SharpDX.D3DCompiler.ShaderFlags.SkipOptimization));
-                var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug | SharpDX.D3DCompiler.ShaderFlags.SkipOptimization));
+                var pixelShaderSimple = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMainSimple", "ps_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug | SharpDX.D3DCompiler.ShaderFlags.SkipOptimization));
+                var pixelShaderPCF = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMainPCF", "ps_5_0", SharpDX.D3DCompiler.ShaderFlags.Debug | SharpDX.D3DCompiler.ShaderFlags.SkipOptimization));
 #else
                 var vertexShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "VSMain", "vs_5_0"));
-                var pixelShader = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMain", "ps_5_0"));
+                var pixelShaderSimple = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMainSimple", "ps_5_0"));
+                var pixelShaderPCF = new ShaderBytecode(SharpDX.D3DCompiler.ShaderBytecode.CompileFromFile("Shaders.hlsl", "PSMainPCF", "ps_5_0"));
 #endif
 
                 var inputElementDescs = new[]
@@ -258,7 +281,6 @@ namespace D3D12ShadowMap
                     InputLayout = new InputLayoutDescription(inputElementDescs),
                     RootSignature = RootSignature,
                     VertexShader = vertexShader,
-                    PixelShader = pixelShader,
                     RasterizerState = RasterizerStateDescription.Default(),
                     BlendState = BlendStateDescription.Default(),
                     DepthStencilFormat = Format.D32_Float,
@@ -272,7 +294,11 @@ namespace D3D12ShadowMap
                 };
                 psoDesc.RenderTargetFormats[0] = Format.R8G8B8A8_UNorm;
 
-                PipelineState = Device.CreateGraphicsPipelineState(psoDesc);
+                psoDesc.PixelShader = pixelShaderSimple;
+                PipelineStateSimple = Device.CreateGraphicsPipelineState(psoDesc);
+
+                psoDesc.PixelShader = pixelShaderPCF;
+                PipelineStatePCF = Device.CreateGraphicsPipelineState(psoDesc);
 
                 // シャドウマップ生成用パイプラインステートオブジェクトの作成
 #if DEBUG
@@ -306,7 +332,7 @@ namespace D3D12ShadowMap
                 PipelineStateShadowMap = Device.CreateGraphicsPipelineState(psoDescShadowMap);
             }
 
-            CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocators[FrameIndex], PipelineState);
+            CommandList = Device.CreateCommandList(CommandListType.Direct, CommandAllocators[FrameIndex], null);
 
             var uploadResources = new List<Resource>();
 
@@ -592,6 +618,14 @@ namespace D3D12ShadowMap
             }
         }
 
+        private void OnKeyDown(object sender, System.Windows.Forms.KeyEventArgs e)
+        {
+            if (e.KeyCode == System.Windows.Forms.Keys.C)
+            {
+                CurrentShadowType = (ShadowType)(((int)CurrentShadowType + 1) % EnumUtilities.GetCount<ShadowType>());
+            }
+        }
+
         internal void Update()
         {
             Camera.Update();
@@ -642,6 +676,8 @@ namespace D3D12ShadowMap
 
                 currentPtr = IntPtr.Add(currentPtr, Utilities.SizeOf<ConstantBufferDataStruct>());
             }
+
+            Form.Text = $"Shadow Type: {CurrentShadowType}";
         }
 
         internal void Render()
@@ -697,7 +733,21 @@ namespace D3D12ShadowMap
 
             // シャドウマップを利用した描画を行う
             {
-                CommandList.PipelineState = PipelineState;
+                switch(CurrentShadowType)
+                {
+                    case ShadowType.Simple:
+                        {
+                            CommandList.PipelineState = PipelineStateSimple;
+                        }
+                        break;
+                    case ShadowType.PCF:
+                        {
+                            CommandList.PipelineState = PipelineStatePCF;
+                        }
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
 
                 CommandList.SetViewport(Viewport);
                 CommandList.SetScissorRectangles(ScissorRect);
