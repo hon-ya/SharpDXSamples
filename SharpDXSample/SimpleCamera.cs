@@ -4,11 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace D3D12DynamicIndexing
+namespace SharpDXSample
 {
     using SharpDX;
+    using SharpDX.Windows;
+    using System.Diagnostics;
 
-    class SimpleCamera
+    public class SimpleCamera
     {
         struct KeysPressedStruct
         {
@@ -29,13 +31,13 @@ namespace D3D12DynamicIndexing
         private Vector3 Position;
         private float Yaw;
         private KeysPressedStruct KeysPressed;
+        private Stopwatch Stopwatch = Stopwatch.StartNew();
 
-        public float MoveSpeed { get; set; } = 20.0f;
+        public float MoveSpeed { get; set; } = 10.0f;
         public float TurnSpeed { get; set; } = MathUtil.PiOverTwo;
 
         public SimpleCamera()
         {
-
         }
 
         public void Initialize(Vector3 position)
@@ -45,16 +47,33 @@ namespace D3D12DynamicIndexing
             Reset();
         }
 
+        public void RegisterHandler(RenderForm form)
+        {
+            form.KeyDown += OnKeyDown;
+            form.KeyUp += OnKeyUp;
+        }
+
+        public void UnregisterHandler(RenderForm form)
+        {
+            form.KeyDown -= OnKeyDown;
+            form.KeyUp -= OnKeyUp;
+        }
+
         public void Reset()
         {
             Position = InitialPosition;
             Yaw = MathUtil.Pi;
             Pitch = 0.0f;
             LookDirection = new Vector3(0.0f, 0.0f, -1.0f);
+
+            Stopwatch.Restart();
         }
 
-        public void Update(TimeSpan elapsedTime)
+        public void Update()
         {
+            var elapsedTime = Stopwatch.Elapsed;
+            Stopwatch.Restart();
+
             var move = Vector3.Zero;
 
             if(KeysPressed.A)
@@ -104,12 +123,16 @@ namespace D3D12DynamicIndexing
             Pitch = Math.Min(Pitch, MathUtil.PiOverFour);
             Pitch = Math.Max(-MathUtil.PiOverFour, Pitch);
 
-            var x = move.X * -Math.Cos(Yaw) - move.Z * Math.Sin(Yaw);
-            var z = move.X * Math.Sin(Yaw) - move.Z * Math.Cos(Yaw);
+            var r = Math.Cos(Pitch);
+
+            var x = r * (move.X * -Math.Cos(Yaw) - move.Z * Math.Sin(Yaw));
+            var z = r * (move.X * Math.Sin(Yaw) - move.Z * Math.Cos(Yaw));
+            var y = - move.Z * Math.Sin(Pitch);
+
             Position.X += (float)(x * moveInterval);
+            Position.Y += (float)(y * moveInterval);
             Position.Z += (float)(z * moveInterval);
 
-            var r = Math.Cos(Pitch);
             LookDirection.X = (float)(r * Math.Sin(Yaw));
             LookDirection.Y = (float)(Math.Sin(Pitch));
             LookDirection.Z = (float)(r * Math.Cos(Yaw));

@@ -10,6 +10,7 @@ namespace D3D12ShadowMap
     using System.Collections.Generic;
     using System.Runtime.InteropServices;
     using SharpDXSample;
+    using System.Diagnostics;
 
     internal class D3D12ShadowMap : IDisposable
     {
@@ -70,6 +71,7 @@ namespace D3D12ShadowMap
         private int DsvDescriptorSize;
         private Resource DepthStencil;
         private Resource[] ShadowMaps = new Resource[FrameCount];
+        private SimpleCamera Camera = new SimpleCamera();
 
         public void Dispose()
         {
@@ -120,6 +122,9 @@ namespace D3D12ShadowMap
 
             ViewportShadowMap = new ViewportF(0, 0, ShadowMapWidth, ShadowMapHeight, 0.0f, 1.0f);
             ScissorRectShadowMap = new Rectangle(0, 0, ShadowMapWidth, ShadowMapHeight);
+
+            Camera.Initialize(new Vector3(0.0f, 1.0f, 10.0f));
+            Camera.RegisterHandler(form);
 
 #if DEBUG
             {
@@ -588,6 +593,8 @@ namespace D3D12ShadowMap
 
         internal void Update()
         {
+            Camera.Update();
+
             var cubeModel =
                 Matrix.RotationAxis(
                     new Vector3(0.0f, 1.0f, 0.0f),
@@ -599,13 +606,9 @@ namespace D3D12ShadowMap
 
             var models = new[] { cubeModel, groundModel };
 
-            var view = Matrix.LookAtRH(
-                    new Vector3(4.0f, 3.0f, 4.0f),
-                    new Vector3(0.0f, 0.0f, 0.0f),
-                    new Vector3(0.0f, 1.0f, 0.0f)
-                    );
+            var view = Camera.GetViewMatrix();
 
-            var projection = Matrix.PerspectiveFovRH(
+            var projection = Camera.GetProjectionMatrix(
                     MathUtil.DegreesToRadians(60.0f),
                     Viewport.Width / Viewport.Height,
                     0.0001f,
@@ -613,7 +616,7 @@ namespace D3D12ShadowMap
                     );
 
             var lightView = Matrix.LookAtRH(
-                    new Vector3(-2.0f, 10.0f, 4.0f),
+                    new Vector3(-4.0f, 8.0f, 4.0f),
                     new Vector3(0.0f, 0.0f, 0.0f),
                     new Vector3(0.0f, 1.0f, 0.0f)
                     );
