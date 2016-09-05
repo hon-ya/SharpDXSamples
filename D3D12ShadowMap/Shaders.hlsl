@@ -22,7 +22,7 @@ struct PixelShaderInput
 };
 
 Texture2D g_Texture : register(t0);
-SamplerState g_Sampler : register(s0);
+SamplerComparisonState g_Sampler : register(s0);
 
 // for creating shadow map
 PixelShaderInput VSMainSM(VertexShaderInput input)
@@ -71,16 +71,7 @@ float4 PSMain(PixelShaderInput input) : SV_TARGET
 	uv.y = -uv.y / 2.0f + 0.5f;
 	uv.z = uv.z - depthBias;
 
-	float depth = g_Texture.Sample(g_Sampler, uv.xy).r;
+	float depth = g_Texture.SampleCmpLevelZero(g_Sampler, uv.xy, uv.z).r;
 
-	if (uv.z > depth)
-	{
-		// in shadow
-		return input.color * 0.1f;
-	}
-	else
-	{
-		// out shadow
-		return input.color;
-	}
+	return input.color * depth;
 }

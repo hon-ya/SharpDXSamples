@@ -229,9 +229,10 @@ namespace D3D12ShadowMap
                     {
                         new StaticSamplerDescription(ShaderVisibility.Pixel, 0, 0)
                         {
-                            Filter = Filter.MinMagMipLinear,
+                            Filter = Filter.ComparisonMinMagMipLinear,
                             AddressUVW = TextureAddressMode.Border,
                             BorderColor = StaticBorderColor.OpaqueWhite,
+                            ComparisonFunc = Comparison.LessEqual,
                         },
                     });
                 RootSignature = Device.CreateRootSignature(rootSignatureDesc.Serialize());
