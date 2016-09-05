@@ -64,6 +64,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="D3D12Utilities.cs" />
+    <Compile Include="EnumUtilities.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SimpleCamera.cs" />
   </ItemGroup>
